@@ -1,4 +1,4 @@
-# IBOB Dashboard Web (Path A)
+# IBOB Dashboard Web
 
 Standalone FastAPI + React migration of the Streamlit [IBOB dashboard](https://github.com/van0805/ibob-dashboard).
 
@@ -70,18 +70,6 @@ Open http://127.0.0.1:8000 (local/Docker) or http://127.0.0.1:5173 (Vite dev)
 ```bash
 pytest backend/tests -q
 ```
-
-## Migration phases
-
-| Phase | Status | Scope |
-|-------|--------|--------|
-| 0 | Done | Repo scaffold, data + scrapers, standalone layout |
-| 1 | Done | Data layer + inbound/outbound API + React shell |
-| 2 | Done | Full Plotly combined tables, international PPT section |
-| 3 | Done | Holiday analysis + control-point charts |
-| 4 | Scaffold done | Docker + cutover runbook; ops steps remain |
-
-Details: [docs/migration/PHASES.md](docs/migration/PHASES.md) · Cutover: [docs/migration/CUTOVER.md](docs/migration/CUTOVER.md)
 
 ## Secrets (PartnerNet scraper)
 

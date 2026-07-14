@@ -1,0 +1,156 @@
+:root {
+  --bg: #f6f3ee;
+  --ink: #1a1a1a;
+  --muted: #5c5c5c;
+  --card: #fffdf9;
+  --line: #d9d2c5;
+  --accent: #3a7976;
+  --pos: #2e7d32;
+  --neg: #8b2942;
+  --font: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: var(--sans);
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, #e4ddd0 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, #d5e3e0 0%, transparent 45%),
+    var(--bg);
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.header h1 {
+  margin: 0.25rem 0 0.35rem;
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.header button {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  padding: 0.55rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.header button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.section h2 {
+  margin: 0 0 1rem;
+  font-family: var(--font);
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.tables {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.metrics-table-wrap h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.35rem 0.45rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+th:first-child,
+td.row-label {
+  text-align: left;
+}
+
+td.pos {
+  color: var(--pos);
+}
+
+td.neg {
+  color: var(--neg);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--neg);
+}
+
+.footer {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (min-width: 900px) {
+  .tables {
+    grid-template-columns: 1fr 1fr;
+  }
+}

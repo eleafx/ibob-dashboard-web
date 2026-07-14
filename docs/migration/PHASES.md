@@ -15,21 +15,23 @@
 - [x] React shell renders inbound/outbound charts
 - [x] Pytest smoke tests on real fixtures
 
-## Phase 2 — International + table figures
+## Phase 2 — International + table figures ✅
 
-- [ ] Port `build_ppt_summary` + PPT HTML → React table
-- [ ] International monthly / YoY charts
-- [ ] Port `make_combined_figure` table traces (YoY + recovery under chart)
+- [x] Port `build_ppt_summary` + PPT HTML → React table
+- [x] International monthly / YoY charts
+- [x] Port `make_combined_figure` table traces (YoY + recovery under chart)
 
-## Phase 3 — Holiday module
+## Phase 3 — Holiday module ✅
 
-- [ ] Port `HOLIDAY_PERIODS` + variant helpers
-- [ ] Port `get_holiday_data` + multi-year / CP charts
-- [ ] Holiday UI controls (region, holiday, segment, tabs)
+- [x] Port `HOLIDAY_PERIODS` + variant helpers
+- [x] Port `get_holiday_data` + multi-year / CP charts
+- [x] Holiday UI controls (region, holiday, segment, tabs)
 
-## Phase 4 — Cutover
+## Phase 4 — Cutover ✅ (scaffold) / ⏳ (ops)
 
-- [ ] Deploy API + frontend
-- [ ] Mirror PartnerNet secrets on new host
-- [ ] Point users at new URL; freeze Streamlit
-- [ ] Optional: mirror repo to GitLab; switch CI
+- [x] Deploy packaging: Dockerfile + compose; FastAPI serves `frontend/dist`
+- [x] Cutover runbook: [CUTOVER.md](CUTOVER.md)
+- [x] GitLab CI scaffold: `.gitlab-ci.yml` (fetch + optional image)
+- [ ] Mirror PartnerNet secrets on deploy/CI host *(ops)*
+- [ ] Point users at new URL; freeze Streamlit *(ops)*
+- [ ] Optional: push GitLab mirror + enable schedules *(ops)*

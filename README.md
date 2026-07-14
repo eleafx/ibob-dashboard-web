@@ -13,11 +13,12 @@ frontend/              # Vite + React + react-plotly.js
 scraper.py             # IMMD weekly fetch
 international_visitors_scraper.py
 docs/reference/app.py  # original Streamlit app (port checklist)
+Dockerfile             # multi-stage: build UI + run API
 ```
 
 ## Quick start
 
-### API
+### API (dev)
 
 ```bash
 python -m venv .venv
@@ -27,12 +28,7 @@ pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-- Health: http://127.0.0.1:8000/api/health  
-- Inbound: http://127.0.0.1:8000/api/inbound  
-- Outbound: http://127.0.0.1:8000/api/outbound  
-- Docs: http://127.0.0.1:8000/docs  
-
-### Frontend
+### Frontend (dev)
 
 ```bash
 cd frontend
@@ -41,6 +37,33 @@ npm run dev
 ```
 
 Open http://127.0.0.1:5173 (proxies `/api` → `:8000`).
+
+### Production-style (one port, no Docker)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-local.ps1
+```
+
+Builds the React app and serves it from FastAPI at http://127.0.0.1:8000
+
+### Dev (two ports, hot reload)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
+```
+
+Or Docker:
+
+```bash
+docker compose up --build
+```
+
+Open http://127.0.0.1:8000 (local/Docker) or http://127.0.0.1:5173 (Vite dev)
+### API routes
+
+- Health: `/api/health`
+- Inbound / outbound / international / holiday under `/api/*`
+- OpenAPI: `/docs`
 
 ### Tests
 
@@ -54,19 +77,19 @@ pytest backend/tests -q
 |-------|--------|--------|
 | 0 | Done | Repo scaffold, data + scrapers, standalone layout |
 | 1 | Done | Data layer + inbound/outbound API + React shell |
-| 2 | Next | Full Plotly combined tables, international PPT section |
-| 3 | Todo | Holiday analysis + control-point charts |
-| 4 | Todo | Deploy API + static frontend; retire Streamlit |
+| 2 | Done | Full Plotly combined tables, international PPT section |
+| 3 | Done | Holiday analysis + control-point charts |
+| 4 | Scaffold done | Docker + cutover runbook; ops steps remain |
 
-Details: [docs/migration/PHASES.md](docs/migration/PHASES.md)
+Details: [docs/migration/PHASES.md](docs/migration/PHASES.md) · Cutover: [docs/migration/CUTOVER.md](docs/migration/CUTOVER.md)
 
 ## Secrets (PartnerNet scraper)
 
-Set GitHub (or later GitLab) Actions secrets:
+Set GitHub or GitLab CI secrets/variables:
 
 - `PARTNERNET_USER`
 - `PARTNERNET_PASS`
 
-## GitLab move (later)
+## GitLab move
 
-This repo is self-contained: copy the whole tree, re-point CI to GitLab CI, keep `data/` + scrapers. No runtime dependency on the old Streamlit remotes.
+This repo is self-contained. Use `.gitlab-ci.yml` for IMMD/PartnerNet fetch + optional image build, then disable GitHub Actions schedules. See cutover doc.

@@ -1,0 +1,84 @@
+# GitLab CI — data fetch + optional Docker image
+# Mirror of .github/workflows/fetch_data.yml for Path A cutover.
+
+stages:
+  - fetch
+  - build
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+default:
+  image: python:3.11-bookworm
+
+cache:
+  key:
+    files:
+      - backend/requirements.txt
+  paths:
+    - .cache/pip
+
+# --- Weekly IMMD (and on manual / tag) ---
+fetch_immd:
+  stage: fetch
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $FETCH_JOB == "immd"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
+  before_script:
+    - pip install --quiet requests pandas urllib3
+  script:
+    - python scraper.py
+    - |
+      git config user.name "gitlab-ci"
+      git config user.email "gitlab-ci@noreply.gitlab.com"
+      git add data/
+      if git diff --cached --quiet; then
+        echo "No IMMD changes to commit"
+        exit 0
+      fi
+      git commit -m "Auto-update: IMMD data $(date +'%Y-%m-%d')"
+      git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_COMMIT_REF_NAME}"
+
+# --- Monthly PartnerNet ---
+fetch_partnernet:
+  stage: fetch
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $FETCH_JOB == "partnernet"
+    - if: $CI_PIPELINE_SOURCE == "web" && $RUN_PARTNERNET == "true"
+  before_script:
+    - pip install --quiet requests pandas urllib3 beautifulsoup4 lxml openpyxl
+  script:
+    - |
+      if [ -z "${PARTNERNET_USER}" ] || [ -z "${PARTNERNET_PASS}" ]; then
+        echo "PARTNERNET_USER / PARTNERNET_PASS CI variables required"
+        exit 1
+      fi
+    - python international_visitors_scraper.py
+    - |
+      git config user.name "gitlab-ci"
+      git config user.email "gitlab-ci@noreply.gitlab.com"
+      git add data/
+      if git diff --cached --quiet; then
+        echo "No PartnerNet changes to commit"
+        exit 0
+      fi
+      git commit -m "Auto-update: PartnerNet data $(date +'%Y-%m-%d')"
+      git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_COMMIT_REF_NAME}"
+
+# --- Optional image build (enable Container Registry on the project) ---
+build_image:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_IMAGE == "true"
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$CI_REGISTRY_IMAGE:latest" .
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$CI_REGISTRY_IMAGE:latest"

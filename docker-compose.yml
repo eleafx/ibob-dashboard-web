@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      SERVE_FRONTEND: "1"
+      CORS_ALLOW_ORIGINS: "${CORS_ALLOW_ORIGINS:-*}"
+    volumes:
+      # Persist / hot-reload CSV updates from host scrapers or Actions checkout
+      - ./data:/app/data
+    restart: unless-stopped

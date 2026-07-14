@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 
+from backend.app.charts import fig_to_json
 from backend.app.config_holidays import (
     CP_COLORS,
     CP_DISPLAY_NAME,
@@ -190,7 +191,7 @@ def make_multiyear_holiday_chart(
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
-    return fig.to_plotly_json()
+    return fig_to_json(fig)
 
 
 def make_holiday_daily_figure(hd: dict, colors: dict[str, str]) -> dict | None:
@@ -237,7 +238,7 @@ def make_holiday_daily_figure(hd: dict, colors: dict[str, str]) -> dict | None:
         height=380,
         template="plotly_white",
     )
-    return fig.to_plotly_json()
+    return fig_to_json(fig)
 
 
 def make_holiday_bar_figure(
@@ -301,7 +302,7 @@ def make_holiday_bar_figure(
         height=380,
         template="plotly_white",
     )
-    return fig.to_plotly_json()
+    return fig_to_json(fig)
 
 
 def make_holiday_cp_figure(hd: dict) -> dict | None:
@@ -401,7 +402,7 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
         height=480,
         template="plotly_white",
     )
-    return fig.to_plotly_json()
+    return fig_to_json(fig)
 
 
 def build_cp_table(hd: dict) -> dict[str, Any] | None:

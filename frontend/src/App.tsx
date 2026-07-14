@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   fetchJson,
   type FlowPayload,
@@ -26,6 +26,29 @@ const emptySection = <T,>(): SectionState<T> => ({
 
 type IntlView = 'ytd' | 'monthly'
 
+function Spinner() {
+  return <span className="spinner" aria-hidden="true" />
+}
+
+function Loading() {
+  return (
+    <div className="loading-wrap">
+      <Spinner /> Loading…
+    </div>
+  )
+}
+
+function ErrorBlock({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="error-wrap">
+      <p className="error">{message}</p>
+      <button type="button" className="retry-btn" onClick={onRetry}>
+        Retry
+      </button>
+    </div>
+  )
+}
+
 function App() {
   const [health, setHealth] = useState<HealthPayload | null>(null)
   const [inbound, setInbound] = useState(emptySection<FlowPayload>())
@@ -35,7 +58,10 @@ function App() {
   )
   const [intlView, setIntlView] = useState<IntlView>('ytd')
   const [refreshing, setRefreshing] = useState(false)
+  const [fetchingGov, setFetchingGov] = useState(false)
   const [refreshToken, setRefreshToken] = useState(0)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  const pageRef = useRef<HTMLDivElement>(null)
 
   async function loadAll() {
     setInbound(emptySection())
@@ -83,9 +109,25 @@ function App() {
     }
   }
 
+  const retryLoadAll = useCallback(() => {
+    void loadAll()
+  }, [])
+
   useEffect(() => {
     void loadAll()
   }, [])
+
+  useEffect(() => {
+    function onScroll() {
+      setShowScrollTop(window.scrollY > 400)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   async function onRefresh() {
     setRefreshing(true)
@@ -99,60 +141,91 @@ function App() {
     setRefreshing(false)
   }
 
+  async function onRefetchFromGov() {
+    setFetchingGov(true)
+    try {
+      await fetch('/api/refresh?from_gov=true', { method: 'POST' })
+    } catch (err) {
+      console.error(err)
+    }
+    await loadAll()
+    setRefreshToken((n) => n + 1)
+    setFetchingGov(false)
+  }
+
   const monthHeaders = inbound.data?.month_labels ?? outbound.data?.month_labels ?? []
 
   return (
-    <div className="page">
+    <div className="page" ref={pageRef}>
       <header className="header">
         <div>
           <p className="eyebrow">IBOB</p>
           <h1>Passenger Traffic Dashboard</h1>
-          <p className="meta">
-            {health?.source ?? 'API offline — start uvicorn on :8000'}
-            {health?.daily_in_rows
-              ? ` · ${health.daily_in_rows.toLocaleString()} daily inbound rows`
-              : null}
-          </p>
+          {health ? (
+            <p className="meta">
+              Last updated: {health.last_updated_file ?? 'unknown'}
+            </p>
+          ) : (
+            <p className="meta">API offline — start uvicorn on :8000</p>
+          )}
         </div>
-        <button type="button" onClick={() => void onRefresh()} disabled={refreshing}>
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="header-actions">
+          <button type="button" onClick={() => void onRefresh()} disabled={refreshing || fetchingGov}>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => void onRefetchFromGov()}
+            disabled={refreshing || fetchingGov}
+          >
+            {fetchingGov ? 'Downloading from IMMD…' : 'Refetch from source'}
+          </button>
+        </div>
       </header>
 
-      <nav className="toc">
+      <nav className="toc" aria-label="Section navigation">
         <a href="#inbound">Inbound</a>
         <a href="#international">International</a>
         <a href="#holiday">Holiday</a>
         <a href="#outbound">Outbound</a>
       </nav>
 
-      <section id="inbound" className="section">
-        <h2>Inbound Tourist Arrivals</h2>
-        <FlowSection state={inbound} monthHeaders={[''].concat(monthHeaders)} />
-      </section>
+      <main>
+        <section id="inbound" className="section">
+          <h2>Inbound Tourist Arrivals</h2>
+          <FlowSection state={inbound} monthHeaders={[''].concat(monthHeaders)} onRetry={retryLoadAll} />
+        </section>
 
-      <section id="international" className="section">
-        <h2>International Visitor Arrivals</h2>
-        <InternationalSection
-          state={international}
-          view={intlView}
-          onViewChange={setIntlView}
-        />
-      </section>
+        <section id="international" className="section">
+          <h2>International Visitor Arrivals</h2>
+          <InternationalSection
+            state={international}
+            view={intlView}
+            onViewChange={setIntlView}
+            onRetry={retryLoadAll}
+          />
+        </section>
 
-      <section id="holiday" className="section">
-        <h2>Holiday Period Analysis</h2>
-        <HolidaySection refreshToken={refreshToken} />
-      </section>
+        <section id="holiday" className="section">
+          <h2>Holiday Period Analysis</h2>
+          <HolidaySection refreshToken={refreshToken} />
+        </section>
 
-      <section id="outbound" className="section">
-        <h2>Outbound HK Resident Departures</h2>
-        <FlowSection state={outbound} monthHeaders={[''].concat(monthHeaders)} />
-      </section>
+        <section id="outbound" className="section">
+          <h2>Outbound HK Resident Departures</h2>
+          <FlowSection state={outbound} monthHeaders={[''].concat(monthHeaders)} onRetry={retryLoadAll} />
+        </section>
+      </main>
 
-      <footer className="footer">
-        Phase 3 — Holiday analysis. Deploy / cutover next.
-      </footer>
+    <button
+        type="button"
+        className={`scroll-top${showScrollTop ? ' visible' : ''}`}
+        onClick={scrollToTop}
+        aria-label="Scroll to top"
+      >
+        ↑
+      </button>
     </div>
   )
 }
@@ -160,12 +233,14 @@ function App() {
 function FlowSection({
   state,
   monthHeaders,
+  onRetry,
 }: {
   state: SectionState<FlowPayload>
   monthHeaders: string[]
+  onRetry: () => void
 }) {
-  if (state.loading) return <p className="muted">Loading…</p>
-  if (state.error) return <p className="error">{state.error}</p>
+  if (state.loading) return <Loading />
+  if (state.error) return <ErrorBlock message={state.error} onRetry={onRetry} />
   if (!state.data) return <p className="muted">No data</p>
 
   const { data } = state
@@ -188,6 +263,16 @@ function FlowSection({
           />
         </div>
       )}
+      <p className="caption">
+        Source:{' '}
+        <a
+          href="https://www.immd.gov.hk/opendata/eng/transport/immigration_clearance/statistics_on_daily_passenger_traffic.csv"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Immigration Department Open Data
+        </a>
+      </p>
     </>
   )
 }
@@ -196,13 +281,15 @@ function InternationalSection({
   state,
   view,
   onViewChange,
+  onRetry,
 }: {
   state: SectionState<InternationalPayload>
   view: IntlView
   onViewChange: (v: IntlView) => void
+  onRetry: () => void
 }) {
-  if (state.loading) return <p className="muted">Loading…</p>
-  if (state.error) return <p className="error">{state.error}</p>
+  if (state.loading) return <Loading />
+  if (state.error) return <ErrorBlock message={state.error} onRetry={onRetry} />
   if (!state.data) return <p className="muted">No data</p>
 
   const data = state.data
@@ -210,11 +297,6 @@ function InternationalSection({
 
   return (
     <>
-      <p className="meta">
-        {data.meta} · {data.rows.toLocaleString()} rows · through{' '}
-        {data.curr_year}-{String(data.curr_month).padStart(2, '0')}
-      </p>
-
       {data.monthly_figure ? <PlotlyChart figure={data.monthly_figure} /> : null}
 
       <div className="view-toggle" role="group" aria-label="International view">
@@ -262,7 +344,16 @@ function InternationalSection({
         </>
       )}
 
-      <p className="caption">Source: HKTB PartnerNet (COR Arrivals).</p>
+      <p className="caption">
+        Source:{' '}
+        <a
+          href="https://partnernet.hktb.com/en/research_statistics/tourism_performance/index.html"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          HKTB PartnerNet (COR Arrivals)
+        </a>
+      </p>
     </>
   )
 }

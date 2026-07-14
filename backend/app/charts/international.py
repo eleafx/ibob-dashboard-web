@@ -4,6 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 
+from backend.app.charts import fig_to_json
 from backend.app.config import INTERNATIONAL_MARKETS, MARKET_GROUP_MAP, MONTH_ABBR
 from backend.app.metrics.international import group_monthly_avg, precompute_monthly_avgs
 
@@ -75,7 +76,7 @@ def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         hovermode="x unified",
     )
-    return fig.to_plotly_json()
+    return fig_to_json(fig)
 
 
 def build_intl_monthly_yoy_chart(
@@ -142,4 +143,4 @@ def build_intl_monthly_yoy_chart(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         hovermode="x unified",
     )
-    return fig.to_plotly_json()
+    return fig_to_json(fig)

@@ -21,7 +21,24 @@ export function PlotlyChart({ figure, className }: Props) {
         }}
         useResizeHandler
         style={{ width: '100%', height: layoutHeight }}
-        config={{ displayModeBar: false, responsive: true }}
+        config={{
+          displayModeBar: true,
+          modeBarButtonsToRemove: [
+            'lasso2d',
+            'select2d',
+            'sendDataToCloud',
+            'autoScale2d',
+            'toggleSpikelines',
+          ],
+          displaylogo: false,
+          responsive: true,
+          toImageButtonOptions: {
+            format: 'png',
+            filename: 'ibob-chart',
+            height: 720,
+            width: 1280,
+          },
+        }}
       />
     </div>
   )

@@ -342,7 +342,14 @@ export function HolidaySection({ refreshToken }: Props) {
           ) : null}
 
           <p className="caption">
-            Source: Immigration Department Open Data.
+            Source:{' '}
+            <a
+              href="https://www.immd.gov.hk/opendata/eng/transport/immigration_clearance/statistics_on_daily_passenger_traffic.csv"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Immigration Department Open Data
+            </a>
           </p>
         </>
       ) : null}

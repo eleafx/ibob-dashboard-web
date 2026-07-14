@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import plotly.graph_objects as go
 
+from backend.app.charts import fig_to_json
 from backend.app.config import BASELINE_COLOR, MONTH_LABELS, get_year_colors
 
 
@@ -52,4 +53,4 @@ def make_line_figure(
         template="plotly_white",
         hovermode="x unified",
     )
-    return fig.to_plotly_json()
+    return fig_to_json(fig)

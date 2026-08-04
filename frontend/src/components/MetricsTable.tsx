@@ -1,4 +1,5 @@
 import type { MetricRow } from '../api'
+import { exportTableCsv } from '../utils/export'
 
 type Props = {
   title: string
@@ -7,9 +8,19 @@ type Props = {
 }
 
 export function MetricsTable({ title, headers, rows }: Props) {
+  function handleExport() {
+    const dataRows = rows.map((r) => [r.label, ...r.values])
+    exportTableCsv(`${title.replace(/\s+/g, '_')}.csv`, headers, dataRows)
+  }
+
   return (
     <div className="metrics-table-wrap">
-      <h3>{title}</h3>
+      <div className="table-header-row">
+        <h3>{title}</h3>
+        <button type="button" className="export-btn" onClick={handleExport} title="Export CSV">
+          ⤓ CSV
+        </button>
+      </div>
       <div className="table-scroll">
         <table>
           <thead>

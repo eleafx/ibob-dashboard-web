@@ -1,4 +1,5 @@
 import type { MonthlyYoyTablePayload, RowStyle } from '../api'
+import { exportTableCsv } from '../utils/export'
 
 type Props = {
   data: MonthlyYoyTablePayload
@@ -16,8 +17,23 @@ export function MonthlyYoyTable({ data }: Props) {
   const { columns, rows, row_styles } = data
   const skipCategory = new Set(['middle', 'end'])
 
+  function handleExport() {
+    const dataRows = rows.map((row) => [
+      row.category,
+      row.label,
+      ...row.yoy_cells.map(([text]) => text),
+      row.ytd_yoy[0],
+    ])
+    exportTableCsv('Monthly_YoY.csv', columns, dataRows)
+  }
+
   return (
     <div className="ppt-table-wrap">
+      <div className="table-header-row">
+        <button type="button" className="export-btn" onClick={handleExport} title="Export CSV">
+          ⤓ CSV
+        </button>
+      </div>
       <div className="table-scroll">
         <table className="ppt-table monthly-yoy">
           <thead>

@@ -10,7 +10,7 @@ from backend.app.metrics.international import group_monthly_avg, precompute_mont
 
 
 def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
-    """Monthly trend chart: international visitors by market group, 2024–present."""
+    """Monthly trend chart: overall tourist arrivals by market group, 2024–present."""
     if df is None or df.empty:
         return None
 
@@ -18,22 +18,26 @@ def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
     df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
     df["month"] = pd.to_numeric(df["month"], errors="coerce").astype("Int64")
 
+    mainland_mkts = [
+        m for m in INTERNATIONAL_MARKETS if MARKET_GROUP_MAP.get(m) == "Mainland China"
+    ]
     asean_mkts = [m for m in INTERNATIONAL_MARKETS if MARKET_GROUP_MAP.get(m) == "ASEAN"]
     g7_mkts = [m for m in INTERNATIONAL_MARKETS if MARKET_GROUP_MAP.get(m) == "G7"]
     other_mkts = [
         m
         for m in INTERNATIONAL_MARKETS
-        if MARKET_GROUP_MAP.get(m) not in ("ASEAN", "G7")
+        if MARKET_GROUP_MAP.get(m) not in ("Mainland China", "ASEAN", "G7")
     ]
 
     for m in INTERNATIONAL_MARKETS:
         if m in df.columns:
             df[m] = pd.to_numeric(df[m], errors="coerce").fillna(0)
 
+    df["Mainland"] = df[[m for m in mainland_mkts if m in df.columns]].sum(axis=1)
     df["ASEAN"] = df[[m for m in asean_mkts if m in df.columns]].sum(axis=1)
     df["G7"] = df[[m for m in g7_mkts if m in df.columns]].sum(axis=1)
     df["Other Markets"] = df[[m for m in other_mkts if m in df.columns]].sum(axis=1)
-    df["Total"] = df[["ASEAN", "G7", "Other Markets"]].sum(axis=1)
+    df["Total"] = df[["Mainland", "ASEAN", "G7", "Other Markets"]].sum(axis=1)
 
     df = df[df["year"] >= 2024].sort_values(["year", "month"])
     if df.empty:
@@ -42,30 +46,35 @@ def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
     df["date"] = pd.to_datetime(df[["year", "month"]].assign(day=1))
 
     fig = go.Figure()
-    groups = [
-        ("Total", "#111111", 2.8, "solid"),
-        ("ASEAN", "#2E7D5E", 2.0, "solid"),
-        ("G7", "#8B2942", 2.0, "solid"),
-        ("Other Markets", "#B9A779", 1.8, "dash"),
+    groups: list[tuple[str, str, float, str, bool, str | None]] = [
+        # name, color, width, dash, visible, fill
+        ("Total", "#111111", 4.0, "solid", False, "tozeroy"),
+        ("Mainland", "#C41E3A", 2.0, "solid", False, None),
+        ("ASEAN", "#2E7D5E", 2.0, "solid", True, None),
+        ("G7", "#8B2942", 2.0, "solid", True, None),
+        ("Other Markets", "#B9A779", 1.8, "dash", True, None),
     ]
-    for name, color, width, dash in groups:
+    for name, color, width, dash, visible, fill in groups:
         if name not in df.columns:
             continue
         mask = df[name].notna() & (df[name] > 0)
-        fig.add_trace(
-            go.Scatter(
-                x=df.loc[mask, "date"],
-                y=df.loc[mask, name],
-                name=name,
-                mode="lines",
-                line=dict(color=color, width=width, dash=dash),
-                hovertemplate=f"{name}: <b>%{{y:,.0f}}</b><br>%{{x|%b %Y}}<extra></extra>",
-            )
+        trace_kwargs: dict = dict(
+            x=df.loc[mask, "date"],
+            y=df.loc[mask, name],
+            name=name,
+            mode="lines",
+            line=dict(color=color, width=width, dash=dash),
+            visible=True if visible else "legendonly",
+            hovertemplate=f"{name}: <b>%{{y:,.0f}}</b><br>%{{x|%b %Y}}<extra></extra>",
         )
+        if fill:
+            trace_kwargs["fill"] = fill
+            trace_kwargs["fillcolor"] = "rgba(17, 17, 17, 0.10)"
+        fig.add_trace(go.Scatter(**trace_kwargs))
 
     fig.update_layout(
         title=dict(
-            text="Monthly International Visitor Arrivals by Market Group",
+            text="Monthly Overall Tourist Arrivals by Market Group",
             font=dict(size=15),
         ),
         xaxis=dict(dtick="M1", tickformat="%b<br>%Y", ticklabelstep=2),
@@ -85,30 +94,35 @@ def build_intl_monthly_yoy_chart(
     prev_year: int,
     curr_month: int,
 ) -> dict:
-    """Line chart: monthly YoY % for Total, ASEAN, G7, Other Markets vs prev year."""
+    """Line chart: monthly YoY % for Total, Mainland, ASEAN, G7, Other Markets vs prev year."""
     months = list(range(1, curr_month + 1))
     month_labels = [MONTH_ABBR[m] for m in months]
 
     curr_pre = precompute_monthly_avgs(df, curr_year, months)
     prev_pre = precompute_monthly_avgs(df, prev_year, months)
 
+    mainland_mkts = [
+        m for m in INTERNATIONAL_MARKETS if MARKET_GROUP_MAP.get(m) == "Mainland China"
+    ]
     asean_mkts = [m for m in INTERNATIONAL_MARKETS if MARKET_GROUP_MAP.get(m) == "ASEAN"]
     g7_mkts = [m for m in INTERNATIONAL_MARKETS if MARKET_GROUP_MAP.get(m) == "G7"]
     other_mkts = [
         m
         for m in INTERNATIONAL_MARKETS
-        if MARKET_GROUP_MAP.get(m) not in ("ASEAN", "G7")
+        if MARKET_GROUP_MAP.get(m) not in ("Mainland China", "ASEAN", "G7")
     ]
 
-    groups = [
-        ("Total", INTERNATIONAL_MARKETS, "#111111", 2.8, "solid"),
-        ("ASEAN", asean_mkts, "#2E7D5E", 2.0, "solid"),
-        ("G7", g7_mkts, "#8B2942", 2.0, "solid"),
-        ("Other Markets", other_mkts, "#B9A779", 1.8, "dash"),
+    groups: list[tuple[str, list[str], str, float, str, bool]] = [
+        # name, markets, color, width, dash, visible
+        ("Total", INTERNATIONAL_MARKETS, "#111111", 4.0, "solid", False),
+        ("Mainland", mainland_mkts, "#C41E3A", 2.0, "solid", False),
+        ("ASEAN", asean_mkts, "#2E7D5E", 2.0, "solid", True),
+        ("G7", g7_mkts, "#8B2942", 2.0, "solid", True),
+        ("Other Markets", other_mkts, "#B9A779", 1.8, "dash", True),
     ]
 
     fig = go.Figure()
-    for name, mkts, color, width, dash in groups:
+    for name, mkts, color, width, dash, visible in groups:
         yoy_vals: list[float | None] = []
         for m in months:
             curr_avg = group_monthly_avg(curr_pre, m, mkts)
@@ -125,6 +139,7 @@ def build_intl_monthly_yoy_chart(
                 mode="lines+markers",
                 line=dict(color=color, width=width, dash=dash),
                 marker=dict(size=6),
+                visible=True if visible else "legendonly",
                 hovertemplate=f"{name}: <b>%{{y:+.1f}}%</b><extra></extra>",
                 connectgaps=False,
             )

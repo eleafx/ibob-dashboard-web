@@ -86,7 +86,7 @@ def test_holiday_payload():
         context="Mainland",
         holiday="CNY",
         direction="inbound",
-        segment="All tourists",
+        segment="All Tourists",
         variant="Official Days",
     )
     assert payload["tracker"]

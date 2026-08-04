@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:/Users/Averyxie19/AppData/Local/miniforge3/envs/py311/python.exe -m pytest backend/tests/ -x -q)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat: UI polish and chart serialization hardening *)",
+      "Bash(git push *)",
+      "Bash(python -m pytest backend/tests/ -v)",
+      "Bash(python -c ' *)",
+      "Bash(tasklist)",
+      "Bash(taskkill /PID 20456 /F)",
+      "Bash(python -c \"import subprocess; subprocess.run\\(['taskkill', '/PID', '20456', '/F'], shell=True\\)\")",
+      "Bash(python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000)",
+      "Bash(npm run *)",
+      "Bash(which python *)",
+      "Read(//c/Users/Averyxie19/AppData/Local/Microsoft/WindowsApps//**)",
+      "Bash(python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000)",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/holiday?context=Mainland&holiday=CNY&direction=inbound&segment=All+Tourists&variant=Extended+Leave+Days\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('region:', d.get\\('region'\\)\\); print\\('variant:', d.get\\('variant'\\)\\); print\\('periods count:', len\\(d.get\\('periods',{}\\)\\)\\); print\\('tracker years:', [t['year'] for t in d.get\\('tracker',[]\\)]\\); print\\('tracker al_applicable:', [t.get\\('al_applicable'\\) for t in d.get\\('tracker',[]\\)]\\); print\\('al_warnings:', d.get\\('al_warnings'\\)\\); print\\('figures:', {k:bool\\(v\\) for k,v in d.items\\(\\) if k.endswith\\('_figure'\\)}\\); print\\('cp_table:', bool\\(d.get\\('cp_table'\\)\\)\\)\")",
+      "Bash(curl -s -X POST \"http://127.0.0.1:8000/api/refresh\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('region:', d.get\\('region'\\)\\); print\\('variant:', d.get\\('variant'\\)\\); print\\('periods count:', len\\(d.get\\('periods',{}\\)\\)\\); print\\('flow_label:', d.get\\('flow_label'\\)\\); print\\('tracker al_applicable:', [t.get\\('al_applicable'\\) for t in d.get\\('tracker',[]\\)]\\); print\\('overview_figure:', bool\\(d.get\\('overview_figure'\\)\\)\\); print\\('daily_figure:', bool\\(d.get\\('daily_figure'\\)\\)\\); print\\('bar_total_figure:', bool\\(d.get\\('bar_total_figure'\\)\\)\\); print\\('cp_table:', bool\\(d.get\\('cp_table'\\)\\)\\)\")",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/holiday?context=Mainland&holiday=CNY&direction=inbound&segment=All+Tourists&variant=Official+Days\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('periods:', d.get\\('periods'\\)\\); print\\('avg:', d.get\\('avg'\\)\\)\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('message:', d.get\\('message'\\)\\); print\\('periods keys:', list\\(d.get\\('periods',{}\\).keys\\(\\)\\) if d.get\\('periods'\\) else 'NONE'\\); print\\('avg keys:', list\\(d.get\\('avg',{}\\).keys\\(\\)\\) if d.get\\('avg'\\) else 'NONE'\\)\")",
+      "Bash(pkill -f \"uvicorn backend.app.main:app\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('variant:', d.get\\('variant'\\)\\); print\\('periods:', list\\(d.get\\('periods',{}\\).keys\\(\\)\\) if d.get\\('periods'\\) else 'NONE'\\); print\\('avg:', d.get\\('avg'\\)\\); print\\('flow_label:', d.get\\('flow_label'\\)\\)\")"
+    ]
+  }
+}

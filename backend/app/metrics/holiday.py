@@ -14,6 +14,7 @@ from backend.app.config_holidays import (
     HOLIDAY_INBOUND_SEGMENTS,
     HOLIDAY_OUTBOUND_SEGMENTS,
     HOLIDAY_PERIODS,
+    HOLIDAY_SEGMENTS,
     HOLIDAY_VARIANTS,
     HOLIDAYS_BY_REGION,
     LUNAR_LABELS,
@@ -141,8 +142,7 @@ def get_holiday_periods(
         year_i = int(year)
 
         if region == "CN":
-            if variant_key != "official":
-                continue
+            # CN holidays have no AL bridge config — official periods for any variant
             periods[year_i] = enrich_period(cfg["official"], holiday_key, year_i)
             continue
 
@@ -174,39 +174,40 @@ def build_hk_al_view_periods(holiday_key: str) -> dict[int, dict]:
 def holiday_segment_config(
     direction: str, segment: str
 ) -> tuple[str, list[str] | None, str]:
-    if direction == "inbound":
-        configs = {
-            "All tourists": (
-                "tourist_arrival",
-                ["Mainland Visitors", "Other Visitors"],
-                "Tourist Arrivals",
-            ),
-            "Mainland": (
-                "mainland_arrival",
-                ["Mainland Visitors"],
-                "Mainland Visitor Arrivals",
-            ),
-            "International": (
-                "international_arrival",
-                ["Other Visitors"],
-                "International Visitor Arrivals",
-            ),
-        }
-        return configs.get(segment, configs["All tourists"])
-    configs = {
-        "All": ("total_departure", None, "Total Departures"),
+    """Unified segments — each available for both directions."""
+    inbound = direction == "inbound"
+    configs: dict[str, tuple[str, list[str] | None, str]] = {
         "HK Residents": (
             "hk_departure",
             ["Hong Kong Residents"],
             "HK Resident Departures",
         ),
-        "Tourists": (
-            "tourist_departure",
+        "All Tourists": (
+            "tourist_arrival" if inbound else "tourist_departure",
             ["Mainland Visitors", "Other Visitors"],
-            "Visitor Departures",
+            "Tourist Arrivals" if inbound else "Tourist Departures",
+        ),
+        "Mainland Tourists": (
+            "mainland_arrival" if inbound else "mainland_departure",
+            ["Mainland Visitors"],
+            "Mainland Tourist Arrivals" if inbound else "Mainland Tourist Departures",
+        ),
+        "International Tourists": (
+            "international_arrival" if inbound else "international_departure",
+            ["Other Visitors"],
+            "International Tourist Arrivals" if inbound else "International Tourist Departures",
         ),
     }
-    return configs.get(segment, configs["HK Residents"])
+    # Fallback: try legacy segment names for backward compat
+    legacy_fallbacks = {
+        "All tourists": "All Tourists",
+        "Mainland": "Mainland Tourists",
+        "International": "International Tourists",
+        "All": "All Tourists",
+        "Tourists": "All Tourists",
+    }
+    resolved = segment if segment in configs else legacy_fallbacks.get(segment, "All Tourists")
+    return configs.get(resolved, configs["All Tourists"])
 
 
 def cp_segment_values(cp_subset: pd.DataFrame, cp_cols: list[str] | None) -> pd.Series:
@@ -233,11 +234,7 @@ def get_holiday_data(
     if direction is None:
         direction = CONTEXT_DIRECTION.get(region, "inbound")
     if segment is None:
-        segment = (
-            HOLIDAY_INBOUND_SEGMENTS[0]
-            if direction == "inbound"
-            else HOLIDAY_OUTBOUND_SEGMENTS[1]
-        )
+        segment = "All Tourists" if direction == "inbound" else "HK Residents"
     value_col, cp_cols, flow_label = holiday_segment_config(direction, segment)
 
     if direction == "inbound":
@@ -492,6 +489,7 @@ def holiday_options() -> dict[str, Any]:
         "directions": ["inbound", "outbound"],
         "inbound_segments": list(HOLIDAY_INBOUND_SEGMENTS),
         "outbound_segments": list(HOLIDAY_OUTBOUND_SEGMENTS),
+        "segments": list(HOLIDAY_SEGMENTS),
         "variants": list(HOLIDAY_VARIANTS),
         "holidays_by_region": HOLIDAYS_BY_REGION,
         "holiday_display": HOLIDAY_DISPLAY,

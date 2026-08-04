@@ -6,6 +6,7 @@ import {
   type HolidayPayload,
 } from '../api'
 import { PlotlyChart } from './PlotlyChart'
+import { exportTableCsv } from '../utils/export'
 
 type HolidayView = 'official' | 'al'
 type VolumeBasis = 'total' | 'avg'
@@ -18,7 +19,7 @@ export function HolidaySection({ refreshToken }: Props) {
   const [options, setOptions] = useState<HolidayOptions | null>(null)
   const [context, setContext] = useState('Mainland')
   const [direction, setDirection] = useState('inbound')
-  const [segment, setSegment] = useState('All tourists')
+  const [segment, setSegment] = useState('All Tourists')
   const [holiday, setHoliday] = useState('CNY')
   const [view, setView] = useState<HolidayView>('official')
   const [volumeBasis, setVolumeBasis] = useState<VolumeBasis>('total')
@@ -32,12 +33,9 @@ export function HolidaySection({ refreshToken }: Props) {
     return options.holidays_by_region[region] ?? ['CNY']
   }, [options, region])
 
-  const segments = useMemo(() => {
-    if (!options) return []
-    return direction === 'inbound'
-      ? options.inbound_segments
-      : options.outbound_segments
-  }, [options, direction])
+  const segments: string[] = options?.segments?.length
+    ? options.segments
+    : ['HK Residents', 'All Tourists', 'Mainland Tourists', 'International Tourists']
 
   useEffect(() => {
     void fetchJson<HolidayOptions>('/api/holiday/options')
@@ -45,26 +43,44 @@ export function HolidaySection({ refreshToken }: Props) {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }, [])
 
+  // Auto-switch direction & calendar based on segment selection
+  function handleSegmentChange(s: string) {
+    setSegment(s)
+    if (s === 'HK Residents') {
+      setDirection('outbound')
+      setContext('HK')
+    } else if (s === 'Mainland Tourists') {
+      setDirection('inbound')
+      setContext('Mainland')
+    }
+  }
+
+  // When context changes, reset direction + segment defaults
   useEffect(() => {
     const defaultDir = context === 'HK' ? 'outbound' : 'inbound'
     setDirection(defaultDir)
-    setSegment(defaultDir === 'inbound' ? 'All tourists' : 'HK Residents')
+    if (segment === 'HK Residents' && context !== 'HK') {
+      setSegment('All Tourists')
+    } else if (segment === 'Mainland Tourists' && context !== 'Mainland') {
+      setSegment('All Tourists')
+    }
     setView('official')
     const keys = options?.holidays_by_region[context === 'HK' ? 'HK' : 'CN']
     if (keys?.length) setHoliday(keys[0])
-  }, [context, options])
-
-  useEffect(() => {
-    if (!segments.includes(segment) && segments.length) {
-      setSegment(segments[direction === 'outbound' ? 1 : 0] ?? segments[0])
-    }
-  }, [segments, segment, direction])
+  }, [context])
 
   useEffect(() => {
     if (!holidayKeys.includes(holiday) && holidayKeys.length) {
       setHoliday(holidayKeys[0])
     }
   }, [holidayKeys, holiday])
+
+  function handleCpExport() {
+    if (!data?.cp_table) return
+    const { columns, rows } = data.cp_table
+    const dataRows = rows.map((row) => columns.map((c) => row[c] ?? ''))
+    exportTableCsv('Control_Point_Breakdown.csv', columns, dataRows)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -105,16 +121,16 @@ export function HolidaySection({ refreshToken }: Props) {
     <div className="holiday">
       <div className="holiday-controls">
         <fieldset>
-          <legend>Calendar</legend>
-          <div className="view-toggle">
-            {(['Mainland', 'HK'] as const).map((c) => (
+          <legend>Segment</legend>
+          <div className="view-toggle wrap">
+            {segments.map((s) => (
               <button
-                key={c}
+                key={s}
                 type="button"
-                className={context === c ? 'active' : undefined}
-                onClick={() => setContext(c)}
+                className={segment === s ? 'active' : undefined}
+                onClick={() => handleSegmentChange(s)}
               >
-                {c}
+                {s}
               </button>
             ))}
           </div>
@@ -137,16 +153,16 @@ export function HolidaySection({ refreshToken }: Props) {
         </fieldset>
 
         <fieldset>
-          <legend>Segment</legend>
-          <div className="view-toggle wrap">
-            {segments.map((s) => (
+          <legend>Calendar</legend>
+          <div className="view-toggle">
+            {(['Mainland', 'HK'] as const).map((c) => (
               <button
-                key={s}
+                key={c}
                 type="button"
-                className={segment === s ? 'active' : undefined}
-                onClick={() => setSegment(s)}
+                className={context === c ? 'active' : undefined}
+                onClick={() => setContext(c)}
               >
-                {s}
+                {c}
               </button>
             ))}
           </div>
@@ -203,12 +219,6 @@ export function HolidaySection({ refreshToken }: Props) {
           type="button"
           className={view === 'al' ? 'active' : undefined}
           onClick={() => setView('al')}
-          disabled={region === 'CN'}
-          title={
-            region === 'CN'
-              ? 'Annual Leave view is not applicable for Mainland holidays'
-              : undefined
-          }
         >
           Annual Leave View
         </button>
@@ -216,8 +226,8 @@ export function HolidaySection({ refreshToken }: Props) {
 
       {region === 'CN' && view === 'al' ? (
         <p className="muted">
-          Annual Leave view is not applicable for Mainland holidays
-          (state-mandated holiday blocks only).
+          Mainland holidays use state-mandated blocks — AL bridge days do not
+          apply. Data shown reflects official holiday windows.
         </p>
       ) : null}
 
@@ -295,10 +305,15 @@ export function HolidaySection({ refreshToken }: Props) {
 
           {data.cp_table ? (
             <div className="ppt-table-wrap">
-              <h3 className="subhead">
-                Total {data.flow_label} by Control Point — {data.holiday_label} (
-                {data.variant})
-              </h3>
+              <div className="table-header-row">
+                <h3 className="subhead" style={{ margin: 0 }}>
+                  Total {data.flow_label} by Control Point — {data.holiday_label} (
+                  {data.variant})
+                </h3>
+                <button type="button" className="export-btn" onClick={handleCpExport} title="Export CSV">
+                  ⤓ CSV
+                </button>
+              </div>
               <div className="table-scroll">
                 <table className="ppt-table">
                   <thead>

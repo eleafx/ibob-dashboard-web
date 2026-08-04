@@ -67,6 +67,14 @@ HOLIDAY_MARGIN_BAR = dict(l=20, r=20, t=85, b=60)
 HOLIDAY_INBOUND_SEGMENTS = ("All tourists", "Mainland", "International")
 HOLIDAY_OUTBOUND_SEGMENTS = ("All", "HK Residents", "Tourists")
 
+# Unified segments shown for both directions
+HOLIDAY_SEGMENTS = (
+    "HK Residents",
+    "All Tourists",
+    "Mainland Tourists",
+    "International Tourists",
+)
+
 HOLIDAY_PERIODS: dict = {
     "CN": {
         2024: {

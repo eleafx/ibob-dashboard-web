@@ -105,6 +105,7 @@ export type HolidayOptions = {
   directions: string[]
   inbound_segments: string[]
   outbound_segments: string[]
+  segments: string[]
   variants: string[]
   holidays_by_region: Record<string, string[]>
   holiday_display: Record<string, string>
@@ -134,8 +135,16 @@ export type HolidayPayload = {
   al_warnings?: string[]
 }
 
+// Vite injects VITE_API_BASE at build time. In dev (Vite proxy) it's unset — relative paths work.
+// In production (Vercel) set it to the Render backend URL, e.g. https://ibob-api.onrender.com
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path}`
+}
+
 export async function fetchJson<T>(path: string): Promise<T> {
-  const res = await fetch(path)
+  const res = await fetch(apiUrl(path))
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`${res.status} ${path}: ${text}`)
@@ -151,5 +160,5 @@ export function holidayQuery(params: {
   variant: string
 }): string {
   const q = new URLSearchParams(params)
-  return `/api/holiday?${q.toString()}`
+  return apiUrl(`/api/holiday?${q.toString()}`)
 }

@@ -9,4 +9,6 @@ services:
     volumes:
       # Persist / hot-reload CSV updates from host scrapers or Actions checkout
       - ./data:/app/data
+      # Dev: hot-reload backend code changes without rebuild
+      - ./backend:/app/backend
     restart: unless-stopped

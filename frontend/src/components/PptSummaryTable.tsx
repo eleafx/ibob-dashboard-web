@@ -1,4 +1,5 @@
 import type { PptSummaryPayload, RowStyle } from '../api'
+import { exportTableCsv } from '../utils/export'
 
 type Props = {
   data: PptSummaryPayload
@@ -28,8 +29,18 @@ export function PptSummaryTable({ data }: Props) {
   const growthCols = meta?.growth_cols ?? []
   const skipCategory = new Set(['middle', 'end'])
 
+  function handleExport() {
+    const dataRows = rows.map((row) => columns.map((c) => row[c] ?? ''))
+    exportTableCsv('PPT_Summary.csv', columns, dataRows)
+  }
+
   return (
     <div className="ppt-table-wrap">
+      <div className="table-header-row">
+        <button type="button" className="export-btn" onClick={handleExport} title="Export CSV">
+          ⤓ CSV
+        </button>
+      </div>
       <div className="table-scroll">
         <table className="ppt-table">
           <thead>

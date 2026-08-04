@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  apiUrl,
   fetchJson,
   type FlowPayload,
   type HealthPayload,
@@ -132,7 +133,7 @@ function App() {
   async function onRefresh() {
     setRefreshing(true)
     try {
-      await fetch('/api/refresh', { method: 'POST' })
+      await fetch(apiUrl('/api/refresh'), { method: 'POST' })
     } catch (err) {
       console.error(err)
     }
@@ -144,7 +145,7 @@ function App() {
   async function onRefetchFromGov() {
     setFetchingGov(true)
     try {
-      await fetch('/api/refresh?from_gov=true', { method: 'POST' })
+      await fetch(apiUrl('/api/refresh?from_gov=true'), { method: 'POST' })
     } catch (err) {
       console.error(err)
     }
@@ -186,19 +187,14 @@ function App() {
 
       <nav className="toc" aria-label="Section navigation">
         <a href="#inbound">Inbound</a>
-        <a href="#international">International</a>
-        <a href="#holiday">Holiday</a>
         <a href="#outbound">Outbound</a>
+        <a href="#holiday">Holiday</a>
       </nav>
 
       <main>
         <section id="inbound" className="section">
           <h2>Inbound Tourist Arrivals</h2>
-          <FlowSection state={inbound} monthHeaders={[''].concat(monthHeaders)} onRetry={retryLoadAll} />
-        </section>
-
-        <section id="international" className="section">
-          <h2>International Visitor Arrivals</h2>
+          <FlowSection state={inbound} monthHeaders={[''].concat(monthHeaders)} onRetry={retryLoadAll} showRecovery />
           <InternationalSection
             state={international}
             view={intlView}
@@ -207,14 +203,14 @@ function App() {
           />
         </section>
 
-        <section id="holiday" className="section">
-          <h2>Holiday Period Analysis</h2>
-          <HolidaySection refreshToken={refreshToken} />
-        </section>
-
         <section id="outbound" className="section">
           <h2>Outbound HK Resident Departures</h2>
           <FlowSection state={outbound} monthHeaders={[''].concat(monthHeaders)} onRetry={retryLoadAll} />
+        </section>
+
+        <section id="holiday" className="section">
+          <h2>Holiday Period Analysis</h2>
+          <HolidaySection refreshToken={refreshToken} />
         </section>
       </main>
 
@@ -234,10 +230,12 @@ function FlowSection({
   state,
   monthHeaders,
   onRetry,
+  showRecovery = false,
 }: {
   state: SectionState<FlowPayload>
   monthHeaders: string[]
   onRetry: () => void
+  showRecovery?: boolean
 }) {
   if (state.loading) return <Loading />
   if (state.error) return <ErrorBlock message={state.error} onRetry={onRetry} />
@@ -256,11 +254,13 @@ function FlowSection({
             headers={monthHeaders}
             rows={data.yoy_rows}
           />
-          <MetricsTable
-            title="Recovery vs 2018"
-            headers={monthHeaders}
-            rows={data.recovery_rows}
-          />
+          {showRecovery ? (
+            <MetricsTable
+              title="Recovery vs 2018"
+              headers={monthHeaders}
+              rows={data.recovery_rows}
+            />
+          ) : null}
         </div>
       )}
       <p className="caption">
@@ -299,7 +299,7 @@ function InternationalSection({
     <>
       {data.monthly_figure ? <PlotlyChart figure={data.monthly_figure} /> : null}
 
-      <div className="view-toggle" role="group" aria-label="International view">
+      <div className="view-toggle" role="group" aria-label="Overall arrivals view">
         <button
           type="button"
           className={view === 'ytd' ? 'active' : undefined}
@@ -319,7 +319,7 @@ function InternationalSection({
       {view === 'ytd' ? (
         <>
           <h3 className="subhead">
-            Visitor Arrivals Summary (Daily Average) — {period}
+            Overall Visitor Arrivals Summary (Daily Average) — {period}
           </h3>
           {data.ppt_summary.rows.length ? (
             <PptSummaryTable data={data.ppt_summary} />

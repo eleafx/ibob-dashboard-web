@@ -580,3 +580,39 @@ td.neg {
   background: var(--accent);
   color: #fff;
 }
+
+/* Export button */
+.export-btn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.export-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.table-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.chart-export {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 5;
+}
+
+/* Push Plotly modebar left — make room for CSV export button */
+.js-plotly-plot .modebar {
+  right: 72px !important;
+}

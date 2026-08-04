@@ -63,7 +63,7 @@ MAINLAND_2018 = {
 INTERNATIONAL_2018 = {k: INBOUND_2018[k] - MAINLAND_2018[k] for k in INBOUND_2018}
 
 INTERNATIONAL_MARKETS = [
-    "Australia", "Canada", "France", "Germany", "India", "Indonesia",
+    "Mainland", "Australia", "Canada", "France", "Germany", "India", "Indonesia",
     "Japan", "Macau SAR", "Malaysia", "Netherlands", "Philippines", "Russia",
     "Singapore", "South Korea", "Taiwan", "Thailand", "United Kingdom",
     "USA", "Vietnam", "Middle East",
@@ -94,6 +94,7 @@ MARKET_GROUP_MAP = {
 }
 
 PPT_SUMMARY_ROWS = [
+    ("Mainland China", "Mainland", ["Mainland"]),
     ("Greater China", "Taiwan", ["Taiwan"]),
     ("Greater China", "Macau SAR", ["Macau SAR"]),
     ("ASEAN", "Philippines", ["Philippines"]),
@@ -123,6 +124,7 @@ ASEAN_MARKETS = {m for m, g in MARKET_GROUP_MAP.items() if g == "ASEAN"}
 G7_MARKETS = {m for m, g in MARKET_GROUP_MAP.items() if g == "G7"}
 PPT_LISTED_MARKETS = (
     {
+        "Mainland",
         "South Korea",
         "Taiwan",
         "Macau SAR",

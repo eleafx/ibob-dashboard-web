@@ -61,6 +61,7 @@ def _period_daily_avg(
     totals: dict[str, int],
     period_days: int,
     markets: list[str] | str,
+    mode: str = "daily_avg",
 ) -> float | None:
     if not totals or period_days <= 0:
         return None
@@ -70,6 +71,8 @@ def _period_daily_avg(
         total_val = _international_row_total(totals, markets)
     else:
         return None
+    if mode == "monthly":
+        return float(total_val)  # monthly total — no day division
     return total_val / period_days
 
 
@@ -88,7 +91,7 @@ def _fmt_pct(pct: float | None) -> str:
     return f"{sign}{pct:.0%}"
 
 
-def _fmt_daily_avg(value: float | None) -> str:
+def _fmt_value(value: float | None) -> str:
     if value is None:
         return "—"
     return f"{int(round(value)):,}"
@@ -123,8 +126,9 @@ def build_ppt_summary(
     target_year: int | None = None,
     target_month: int | None = None,
     year_columns: list[int] | None = None,
+    mode: str = "daily_avg",
 ) -> tuple[list[dict[str, str]] | None, list[dict[str, str]] | None, dict | None]:
-    """Build international visitors summary with daily averages and inline YoY growth."""
+    """Build international visitors summary with daily averages (or monthly totals) and inline YoY growth."""
     if df is None or df.empty:
         return None, None, None
 
@@ -150,7 +154,8 @@ def build_ppt_summary(
     if not target_months:
         return None, None, None
 
-    period_label = f"YTD {target_year}"
+    col_suffix = "Monthly Total" if mode == "monthly" else "Daily Avg"
+    period_label = f"YTD {target_year}" + (" (monthly total)" if mode == "monthly" else "")
 
     if year_columns is None:
         year_columns = [target_year]
@@ -181,10 +186,10 @@ def build_ppt_summary(
         markets = _resolve_markets(spec)
         daily_vals: dict[int, float | None] = {}
         for yr in yr_list:
-            daily_vals[yr] = _period_daily_avg(year_totals[yr], year_days[yr], markets)
+            daily_vals[yr] = _period_daily_avg(year_totals[yr], year_days[yr], markets, mode=mode)
 
         row: dict[str, str] = {"Category": category, "Market": label}
-        row[f"{yr0} YTD Daily Avg"] = _fmt_daily_avg(daily_vals[yr0])
+        row[f"{yr0} YTD {col_suffix}"] = _fmt_value(daily_vals[yr0])
         if yr1:
             if daily_vals.get(yr0) and daily_vals.get(yr1):
                 row[f"{yr0 % 100} v {yr1 % 100}"] = _fmt_pct(
@@ -192,7 +197,7 @@ def build_ppt_summary(
                 )
             else:
                 row[f"{yr0 % 100} v {yr1 % 100}"] = "—"
-            row[f"{yr1} YTD Daily Avg"] = _fmt_daily_avg(daily_vals[yr1])
+            row[f"{yr1} YTD {col_suffix}"] = _fmt_value(daily_vals[yr1])
         if yr2:
             if daily_vals.get(yr1) and daily_vals.get(yr2):
                 row[f"{yr1 % 100} v {yr2 % 100}"] = _fmt_pct(
@@ -200,14 +205,14 @@ def build_ppt_summary(
                 )
             else:
                 row[f"{yr1 % 100} v {yr2 % 100}"] = "—"
-            row[f"{yr2} YTD Daily Avg"] = _fmt_daily_avg(daily_vals[yr2])
+            row[f"{yr2} YTD {col_suffix}"] = _fmt_value(daily_vals[yr2])
         if daily_vals.get(yr0) and daily_vals.get(yr_base):
             row[f"{yr0 % 100} v {yr_base % 100}"] = _fmt_pct(
                 _pct_change(daily_vals[yr0], daily_vals[yr_base])
             )
         else:
             row[f"{yr0 % 100} v {yr_base % 100}"] = "—"
-        row[f"{yr_base} YTD Daily Avg"] = _fmt_daily_avg(daily_vals[yr_base])
+        row[f"{yr_base} YTD {col_suffix}"] = _fmt_value(daily_vals[yr_base])
 
         rows.append(row)
         row_styles.append({"kind": _row_kind(spec, category)})
@@ -252,9 +257,9 @@ def build_ppt_summary(
 
 
 def precompute_monthly_avgs(
-    df: pd.DataFrame, year: int, months: list[int]
+    df: pd.DataFrame, year: int, months: list[int], mode: str = "daily_avg",
 ) -> dict[str, dict[int, float]]:
-    """Return {market: {month: daily_avg}} for all markets in a year."""
+    """Return {market: {month: daily_avg or monthly_total}} for all markets in a year."""
     result: dict[str, dict[int, float]] = {}
     for market in INTERNATIONAL_MARKETS:
         if market not in df.columns:
@@ -267,8 +272,11 @@ def precompute_monthly_avgs(
                 result[market][m] = 0.0
             else:
                 val = pd.to_numeric(row[market], errors="coerce").fillna(0).sum()
-                days = calendar.monthrange(int(year), int(m))[1]
-                result[market][m] = int(val) / days
+                if mode == "monthly":
+                    result[market][m] = float(int(val))
+                else:
+                    days = calendar.monthrange(int(year), int(m))[1]
+                    result[market][m] = int(val) / days
     return result
 
 
@@ -297,12 +305,13 @@ def build_monthly_yoy_table(
     prev_year: int,
     curr_month: int,
     row_styles: list[dict[str, str]],
+    mode: str = "daily_avg",
 ) -> dict[str, Any]:
     """Structured monthly YoY table (PPT market rows × month columns)."""
     months = list(range(1, curr_month + 1))
     month_labels = [MONTH_ABBR[m] for m in months]
-    curr_pre = precompute_monthly_avgs(df, curr_year, months)
-    prev_pre = precompute_monthly_avgs(df, prev_year, months)
+    curr_pre = precompute_monthly_avgs(df, curr_year, months, mode=mode)
+    prev_pre = precompute_monthly_avgs(df, prev_year, months, mode=mode)
 
     def _fmt_yoy_cell(pct: float | None) -> tuple[str, str]:
         if pct is None:

@@ -1,6 +1,8 @@
 """International visitor Plotly charts."""
 from __future__ import annotations
 
+import calendar
+
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -9,8 +11,12 @@ from backend.app.config import INTERNATIONAL_MARKETS, MARKET_GROUP_MAP, MONTH_AB
 from backend.app.metrics.international import group_monthly_avg, precompute_monthly_avgs
 
 
-def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
-    """Monthly trend chart: overall tourist arrivals by market group, 2024–present."""
+def build_intl_monthly_chart(df: pd.DataFrame | None, mode: str = "daily_avg") -> dict | None:
+    """Trend chart: overall tourist arrivals by market group, 2024–present.
+
+    mode='daily_avg' plots daily averages (CSV totals ÷ days in month).
+    mode='monthly' plots raw monthly totals.
+    """
     if df is None or df.empty:
         return None
 
@@ -45,6 +51,19 @@ def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
 
     df["date"] = pd.to_datetime(df[["year", "month"]].assign(day=1))
 
+    # Convert to daily averages when mode is daily_avg
+    if mode == "daily_avg":
+        df["days_in_month"] = df.apply(
+            lambda row: calendar.monthrange(int(row["year"]), int(row["month"]))[1], axis=1,
+        )
+        for grp in ["Mainland", "ASEAN", "G7", "Other Markets", "Total"]:
+            if grp in df.columns:
+                df[grp] = df[grp] / df["days_in_month"]
+
+    chart_title = "Overall Tourist Arrivals by Market Group"
+    y_label = "Daily Avg Arrivals" if mode == "daily_avg" else "Monthly Arrivals"
+    hovertemplate = "%{y:,.0f}<br>%{x|%b %Y}<extra></extra>"
+
     fig = go.Figure()
     groups: list[tuple[str, str, float, str, bool, str | None]] = [
         # name, color, width, dash, visible, fill
@@ -65,7 +84,7 @@ def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
             mode="lines",
             line=dict(color=color, width=width, dash=dash),
             visible=True if visible else "legendonly",
-            hovertemplate=f"{name}: <b>%{{y:,.0f}}</b><br>%{{x|%b %Y}}<extra></extra>",
+            hovertemplate=f"{name}: <b>{hovertemplate}</b>",
         )
         if fill:
             trace_kwargs["fill"] = fill
@@ -74,11 +93,11 @@ def build_intl_monthly_chart(df: pd.DataFrame | None) -> dict | None:
 
     fig.update_layout(
         title=dict(
-            text="Monthly Overall Tourist Arrivals by Market Group",
+            text=chart_title,
             font=dict(size=15),
         ),
         xaxis=dict(dtick="M1", tickformat="%b<br>%Y", ticklabelstep=2),
-        yaxis=dict(tickformat=",", title="Monthly Arrivals"),
+        yaxis=dict(tickformat=",", title=y_label),
         margin=dict(l=60, r=20, t=50, b=50),
         height=420,
         template="plotly_white",
@@ -93,13 +112,15 @@ def build_intl_monthly_yoy_chart(
     curr_year: int,
     prev_year: int,
     curr_month: int,
+    mode: str = "daily_avg",
 ) -> dict:
     """Line chart: monthly YoY % for Total, Mainland, ASEAN, G7, Other Markets vs prev year."""
     months = list(range(1, curr_month + 1))
     month_labels = [MONTH_ABBR[m] for m in months]
+    unit_label = "Monthly Total" if mode == "monthly" else "Daily Avg"
 
-    curr_pre = precompute_monthly_avgs(df, curr_year, months)
-    prev_pre = precompute_monthly_avgs(df, prev_year, months)
+    curr_pre = precompute_monthly_avgs(df, curr_year, months, mode=mode)
+    prev_pre = precompute_monthly_avgs(df, prev_year, months, mode=mode)
 
     mainland_mkts = [
         m for m in INTERNATIONAL_MARKETS if MARKET_GROUP_MAP.get(m) == "Mainland China"
@@ -148,7 +169,7 @@ def build_intl_monthly_yoy_chart(
     fig.add_hline(y=0, line_dash="dash", line_color="#999", line_width=1)
     fig.update_layout(
         title=dict(
-            text=f"{curr_year} vs {prev_year} Monthly YoY — Daily Avg Arrivals",
+            text=f"{curr_year} vs {prev_year} Monthly YoY — {unit_label} Arrivals",
             font=dict(size=15),
         ),
         yaxis=dict(title="YoY % Change", ticksuffix="%"),

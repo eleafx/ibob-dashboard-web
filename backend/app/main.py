@@ -48,8 +48,10 @@ def health():
 
 
 @app.get("/api/inbound")
-def inbound():
-    payload = build_inbound_payload()
+def inbound(mode: str = "daily_avg"):
+    if mode not in ("daily_avg", "monthly"):
+        raise HTTPException(status_code=400, detail="mode must be daily_avg or monthly")
+    payload = build_inbound_payload(mode=mode)
     if payload.get("series") and not any(
         k != "2018" for k in payload["series"]
     ):
@@ -83,8 +85,10 @@ def international_meta():
 
 
 @app.get("/api/international")
-def international():
-    payload = build_international_payload()
+def international(mode: str = "daily_avg"):
+    if mode not in ("daily_avg", "monthly"):
+        raise HTTPException(status_code=400, detail="mode must be daily_avg or monthly")
+    payload = build_international_payload(mode=mode)
     if not payload.get("ok"):
         raise HTTPException(status_code=503, detail=payload.get("meta", "unavailable"))
     return payload

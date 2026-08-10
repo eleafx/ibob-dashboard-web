@@ -49,6 +49,7 @@ from backend.app.metrics.monthly import (
     calc_yoy,
     get_monthly,
     get_series,
+    make_baseline_series,
     resolve_display_years,
 )
 
@@ -109,7 +110,9 @@ def _metric_table_rows(rows: list[dict]) -> list[list[str]]:
     return out
 
 
-def build_inbound_payload() -> dict:
+def build_inbound_payload(mode: str = "daily_avg") -> dict:
+    unit_label = "monthly total" if mode == "monthly" else "daily avg"
+
     def _build():
         daily_in, _, _, _, meta = _load_processed()
         years = resolve_display_years(daily_in)
@@ -117,8 +120,8 @@ def build_inbound_payload() -> dict:
         current_year = years[-1] if years else 2026
         return _assemble_flow(
             flow="inbound",
-            title="Daily Tourist Arrivals by Month",
-            summary_title="Inbound YoY & Recovery Summary",
+            title="Monthly Tourist Arrivals" if mode == "monthly" else "Daily Tourist Arrivals by Month",
+            summary_title=f"Inbound YoY & Recovery Summary ({unit_label})",
             daily=daily_in,
             value_col="tourist_arrival",
             mainland_col="mainland_arrival",
@@ -130,10 +133,11 @@ def build_inbound_payload() -> dict:
             colors=colors,
             current_year=current_year,
             meta=meta,
-            y_max=300_000,
+            y_max=10_000_000 if mode == "monthly" else 300_000,
+            mode=mode,
         )
 
-    return _cached("inbound", _build)
+    return _cached(f"inbound:{mode}", _build)
 
 
 def build_outbound_payload() -> dict:
@@ -164,7 +168,7 @@ def build_outbound_payload() -> dict:
     return _cached("outbound", _build)
 
 
-def build_international_payload() -> dict:
+def build_international_payload(mode: str = "daily_avg") -> dict:
     def _build():
         df, meta = load_international_csv()
         if df is None:
@@ -191,12 +195,13 @@ def build_international_payload() -> dict:
         if BASELINE_YEAR in available_years and BASELINE_YEAR not in year_columns:
             year_columns.append(BASELINE_YEAR)
 
-        monthly_figure = build_intl_monthly_chart(df)
+        monthly_figure = build_intl_monthly_chart(df, mode=mode)
         summary_rows, row_styles, ppt_meta = build_ppt_summary(
             df_c,
             target_year=curr_year,
             target_month=curr_month,
             year_columns=year_columns,
+            mode=mode,
         )
 
         prev_year = curr_year - 1
@@ -204,10 +209,10 @@ def build_international_payload() -> dict:
         monthly_yoy_table = None
         if prev_year in available_years and row_styles is not None:
             yoy_figure = build_intl_monthly_yoy_chart(
-                df_c, curr_year, prev_year, curr_month
+                df_c, curr_year, prev_year, curr_month, mode=mode,
             )
             monthly_yoy_table = build_monthly_yoy_table(
-                df_c, curr_year, prev_year, curr_month, row_styles
+                df_c, curr_year, prev_year, curr_month, row_styles, mode=mode,
             )
 
         return {
@@ -229,7 +234,7 @@ def build_international_payload() -> dict:
             "monthly_yoy_table": monthly_yoy_table,
         }
 
-    return _cached("international", _build)
+    return _cached(f"international:{mode}", _build)
 
 
 def get_holiday_options() -> dict:
@@ -366,13 +371,16 @@ def _assemble_flow(
     meta: str,
     y_max: float,
     extra_height: int = 0,
+    mode: str = "daily_avg",
 ) -> dict:
+    unit_label = "monthly total" if mode == "monthly" else "daily avg"
+
     monthly = get_monthly(daily, value_col)
     series_dict: dict[str, list[float | None]] = {
-        "2018": _baseline_series(baseline_overall),
+        "2018": make_baseline_series(baseline_overall, mode=mode),
     }
     for yr in years:
-        series_dict[str(yr)] = get_series(monthly, yr)
+        series_dict[str(yr)] = get_series(monthly, yr, mode=mode)
 
     figure = make_line_figure(
         title,
@@ -390,48 +398,48 @@ def _assemble_flow(
     for yr in years[-2:]:
         if flow == "inbound":
             yoy_rows.append(
-                {"label": f"{yr} Overall", "values": calc_yoy(monthly, yr, yr - 1)}
+                {"label": f"{yr} Overall", "values": calc_yoy(monthly, yr, yr - 1, mode=mode)}
             )
             yoy_rows.append(
-                {"label": "  Mainland", "values": calc_yoy(monthly_mainland, yr, yr - 1)}
+                {"label": "  Mainland", "values": calc_yoy(monthly_mainland, yr, yr - 1, mode=mode)}
             )
             yoy_rows.append(
                 {
                     "label": "  International",
-                    "values": calc_yoy(monthly_intl, yr, yr - 1),
+                    "values": calc_yoy(monthly_intl, yr, yr - 1, mode=mode),
                 }
             )
             rec_rows.append(
                 {
                     "label": f"{yr} Overall",
-                    "values": calc_recovery(monthly, baseline_overall, yr),
+                    "values": calc_recovery(monthly, baseline_overall, yr, mode=mode),
                 }
             )
             rec_rows.append(
                 {
                     "label": "  Mainland",
                     "values": calc_recovery(
-                        monthly_mainland, baseline_mainland or {}, yr
+                        monthly_mainland, baseline_mainland or {}, yr, mode=mode
                     ),
                 }
             )
             rec_rows.append(
                 {
                     "label": "  International",
-                    "values": calc_recovery(monthly_intl, baseline_intl or {}, yr),
+                    "values": calc_recovery(monthly_intl, baseline_intl or {}, yr, mode=mode),
                 }
             )
         else:
             yoy_rows.append(
                 {
                     "label": f"{yr} vs {yr - 1}",
-                    "values": calc_yoy(monthly, yr, yr - 1),
+                    "values": calc_yoy(monthly, yr, yr - 1, mode=mode),
                 }
             )
             rec_rows.append(
                 {
                     "label": f"{yr} vs 2018",
-                    "values": calc_recovery(monthly, baseline_overall, yr),
+                    "values": calc_recovery(monthly, baseline_overall, yr, mode=mode),
                 }
             )
 
@@ -439,9 +447,9 @@ def _assemble_flow(
     summary_figure = make_combined_figure(
         summary_title,
         table1_rows=_metric_table_rows(yoy_rows),
-        table1_header=["YoY Growth Rate"] + month_headers,
+        table1_header=[f"YoY Growth Rate ({unit_label})"] + month_headers,
         table2_rows=_metric_table_rows(rec_rows),
-        table2_header=["Recovery Rate vs 2018"] + month_headers,
+        table2_header=[f"Recovery Rate vs 2018 ({unit_label})"] + month_headers,
         extra_height=extra_height,
         colors=colors,
         current_year=str(current_year),

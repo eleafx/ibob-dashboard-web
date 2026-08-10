@@ -200,14 +200,32 @@ td.neg {
   margin-top: 1rem;
 }
 
-.view-toggle {
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.section-header-row h2 {
+  margin: 0;
+}
+
+.view-toggle,
+.mode-toggle {
   display: inline-flex;
   gap: 0;
   margin: 1rem 0 0.75rem;
   border: 1px solid var(--line);
 }
 
-.view-toggle button {
+.mode-toggle {
+  margin: 0;
+}
+
+.view-toggle button,
+.mode-toggle button {
   border: 0;
   background: transparent;
   padding: 0.45rem 0.9rem;
@@ -216,7 +234,8 @@ td.neg {
   color: var(--muted);
 }
 
-.view-toggle button.active {
+.view-toggle button.active,
+.mode-toggle button.active {
   background: var(--accent);
   color: #fff;
 }

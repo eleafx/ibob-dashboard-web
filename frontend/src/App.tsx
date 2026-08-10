@@ -26,6 +26,7 @@ const emptySection = <T,>(): SectionState<T> => ({
 })
 
 type IntlView = 'ytd' | 'monthly'
+type InboundMode = 'daily_avg' | 'monthly'
 
 function Spinner() {
   return <span className="spinner" aria-hidden="true" />
@@ -58,6 +59,7 @@ function App() {
     emptySection<InternationalPayload>(),
   )
   const [intlView, setIntlView] = useState<IntlView>('ytd')
+  const [inboundMode, setInboundMode] = useState<InboundMode>('daily_avg')
   const [refreshing, setRefreshing] = useState(false)
   const [fetchingGov, setFetchingGov] = useState(false)
   const [refreshToken, setRefreshToken] = useState(0)
@@ -77,7 +79,7 @@ function App() {
     }
 
     try {
-      const data = await fetchJson<FlowPayload>('/api/inbound')
+      const data = await fetchJson<FlowPayload>(`/api/inbound?mode=${inboundMode}`)
       setInbound({ loading: false, error: null, data })
     } catch (err) {
       setInbound({
@@ -99,7 +101,7 @@ function App() {
     }
 
     try {
-      const data = await fetchJson<InternationalPayload>('/api/international')
+      const data = await fetchJson<InternationalPayload>(`/api/international?mode=${inboundMode}`)
       setInternational({ loading: false, error: null, data })
     } catch (err) {
       setInternational({
@@ -116,7 +118,7 @@ function App() {
 
   useEffect(() => {
     void loadAll()
-  }, [])
+  }, [inboundMode])
 
   useEffect(() => {
     function onScroll() {
@@ -193,13 +195,32 @@ function App() {
 
       <main>
         <section id="inbound" className="section">
-          <h2>Inbound Tourist Arrivals</h2>
-          <FlowSection state={inbound} monthHeaders={[''].concat(monthHeaders)} onRetry={retryLoadAll} showRecovery />
+          <div className="section-header-row">
+            <h2>Inbound Tourist Arrivals</h2>
+            <div className="mode-toggle" role="group" aria-label="Data mode">
+              <button
+                type="button"
+                className={inboundMode === 'daily_avg' ? 'active' : undefined}
+                onClick={() => setInboundMode('daily_avg')}
+              >
+                Daily Avg
+              </button>
+              <button
+                type="button"
+                className={inboundMode === 'monthly' ? 'active' : undefined}
+                onClick={() => setInboundMode('monthly')}
+              >
+                Monthly Total
+              </button>
+            </div>
+          </div>
+          <FlowSection state={inbound} monthHeaders={[''].concat(monthHeaders)} onRetry={retryLoadAll} showRecovery mode={inboundMode} />
           <InternationalSection
             state={international}
             view={intlView}
             onViewChange={setIntlView}
             onRetry={retryLoadAll}
+            mode={inboundMode}
           />
         </section>
 
@@ -231,17 +252,20 @@ function FlowSection({
   monthHeaders,
   onRetry,
   showRecovery = false,
+  mode = 'daily_avg',
 }: {
   state: SectionState<FlowPayload>
   monthHeaders: string[]
   onRetry: () => void
   showRecovery?: boolean
+  mode?: InboundMode
 }) {
   if (state.loading) return <Loading />
   if (state.error) return <ErrorBlock message={state.error} onRetry={onRetry} />
   if (!state.data) return <p className="muted">No data</p>
 
   const { data } = state
+  const unitLabel = mode === 'monthly' ? 'monthly total' : 'daily avg'
   return (
     <>
       <PlotlyChart figure={data.figure} />
@@ -250,13 +274,13 @@ function FlowSection({
       ) : (
         <div className="tables">
           <MetricsTable
-            title="YoY Growth"
+            title={`YoY Growth (${unitLabel})`}
             headers={monthHeaders}
             rows={data.yoy_rows}
           />
           {showRecovery ? (
             <MetricsTable
-              title="Recovery vs 2018"
+              title={`Recovery vs 2018 (${unitLabel})`}
               headers={monthHeaders}
               rows={data.recovery_rows}
             />
@@ -282,11 +306,13 @@ function InternationalSection({
   view,
   onViewChange,
   onRetry,
+  mode = 'daily_avg',
 }: {
   state: SectionState<InternationalPayload>
   view: IntlView
   onViewChange: (v: IntlView) => void
   onRetry: () => void
+  mode?: InboundMode
 }) {
   if (state.loading) return <Loading />
   if (state.error) return <ErrorBlock message={state.error} onRetry={onRetry} />
@@ -294,6 +320,7 @@ function InternationalSection({
 
   const data = state.data
   const period = data.ppt_summary.meta?.period_label ?? `YTD ${data.curr_year}`
+  const unitLabel = mode === 'monthly' ? 'Monthly Total' : 'Daily Average'
 
   return (
     <>
@@ -319,7 +346,7 @@ function InternationalSection({
       {view === 'ytd' ? (
         <>
           <h3 className="subhead">
-            Overall Visitor Arrivals Summary (Daily Average) — {period}
+            Overall Visitor Arrivals Summary ({unitLabel}) — {period}
           </h3>
           {data.ppt_summary.rows.length ? (
             <PptSummaryTable data={data.ppt_summary} />
@@ -334,7 +361,7 @@ function InternationalSection({
             <>
               <h3 className="subhead">
                 Monthly YoY Breakdown by Market — {data.monthly_yoy_table.curr_year} vs{' '}
-                {data.monthly_yoy_table.prev_year} (daily avg)
+                {data.monthly_yoy_table.prev_year} ({unitLabel.toLowerCase()})
               </h3>
               <MonthlyYoyTable data={data.monthly_yoy_table} />
             </>

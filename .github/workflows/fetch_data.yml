@@ -70,7 +70,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install playwright playwright-stealth==2.0.3 openpyxl
+          pip install playwright playwright-stealth==2.0.3 openpyxl pandas
           python -c "from playwright_stealth import Stealth; print('playwright-stealth OK')"
           playwright install chromium
           playwright install-deps chromium

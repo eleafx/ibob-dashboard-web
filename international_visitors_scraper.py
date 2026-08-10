@@ -103,8 +103,8 @@ async def fetch_visitor_data(username: str, password: str, target_year: int):
         print("[1/4] Navigating to PartnerNet...")
         await page.goto(
             "https://partnernet.hktb.com/en/research_statistics/tourism_performance/index.html",
-            wait_until="networkidle",
-            timeout=30_000,
+            wait_until="domcontentloaded",
+            timeout=60_000,
         )
 
         # ----------------------------------------------------------------

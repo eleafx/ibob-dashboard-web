@@ -110,14 +110,17 @@ async def fetch_visitor_data(username: str, password: str, target_year: int):
         # ----------------------------------------------------------------
         # Step 2: Login if redirect to SSO
         # ----------------------------------------------------------------
-        if "hktbsso" in page.url or "login" in page.url.lower():
+        # Wait briefly for possible JS-driven SSO redirect after initial load
+        await page.wait_for_timeout(2000)
+        login_input = await page.query_selector('input[type="password"]')
+        if login_input or "hktbsso" in page.url or "login" in page.url.lower():
             print("[2/4] Logging in via SSO...")
             await page.fill('input[type="text"]', username)
             await page.fill('input[type="password"]', password)
             await page.click('button[type="submit"]')
             await page.wait_for_url(
                 "**/partnernet.hktb.com/**",
-                timeout=20_000,
+                timeout=30_000,
             )
             print("      ✓ Logged in")
         else:

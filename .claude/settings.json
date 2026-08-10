@@ -23,7 +23,11 @@
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('periods:', d.get\\('periods'\\)\\); print\\('avg:', d.get\\('avg'\\)\\)\")",
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('message:', d.get\\('message'\\)\\); print\\('periods keys:', list\\(d.get\\('periods',{}\\).keys\\(\\)\\) if d.get\\('periods'\\) else 'NONE'\\); print\\('avg keys:', list\\(d.get\\('avg',{}\\).keys\\(\\)\\) if d.get\\('avg'\\) else 'NONE'\\)\")",
       "Bash(pkill -f \"uvicorn backend.app.main:app\")",
-      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('variant:', d.get\\('variant'\\)\\); print\\('periods:', list\\(d.get\\('periods',{}\\).keys\\(\\)\\) if d.get\\('periods'\\) else 'NONE'\\); print\\('avg:', d.get\\('avg'\\)\\); print\\('flow_label:', d.get\\('flow_label'\\)\\)\")"
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\); print\\('variant:', d.get\\('variant'\\)\\); print\\('periods:', list\\(d.get\\('periods',{}\\).keys\\(\\)\\) if d.get\\('periods'\\) else 'NONE'\\); print\\('avg:', d.get\\('avg'\\)\\); print\\('flow_label:', d.get\\('flow_label'\\)\\)\")",
+      "Bash(gh workflow *)",
+      "Bash(git commit -m 'fix: PartnerNet scraper timeout — swap networkidle for domcontentloaded + 60s *)",
+      "Bash(git stash *)",
+      "Bash(git reset *)"
     ]
   }
 }

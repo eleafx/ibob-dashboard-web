@@ -58,11 +58,12 @@ def get_series(
     year: int,
     include_jf: bool = True,
     mode: str = "daily_avg",
+    mask_incomplete: bool = True,
 ) -> list[float | None]:
-    """Return [Jan&Feb avg, Mar, ..., Dec] for a year (incomplete current months → None).
+    """Return [Jan&Feb avg, Mar, ..., Dec] for a year.
 
-    mode='daily_avg' returns monthly daily-average values.
-    mode='monthly' returns monthly totals.
+    When mask_incomplete=True (default), incomplete current-year months → None
+    (for chart display). Pass False to retain provisional values for CSV export.
     """
     del include_jf  # kept for API compatibility with Streamlit port
     if monthly is None:
@@ -81,7 +82,7 @@ def get_series(
     jf = (jv + fv) if mode == "monthly" else ((jv + fv) / 2 if jv is not None and fv is not None else (jv or fv))
 
     current_year = datetime.now(_HKT).year
-    if year == current_year:
+    if mask_incomplete and year == current_year:
         if not is_month_complete(year, 1) or not is_month_complete(year, 2):
             jf = None
 
@@ -89,7 +90,7 @@ def get_series(
     for m in range(3, 13):
         v = yd[yd["Month"] == m][value_col].values
         val = float(v[0]) if len(v) else None
-        if year == current_year and not is_month_complete(year, m):
+        if mask_incomplete and year == current_year and not is_month_complete(year, m):
             val = None
         result.append(val)
     return result

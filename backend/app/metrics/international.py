@@ -16,6 +16,7 @@ from backend.app.config import (
     PPT_LISTED_MARKETS,
     PPT_SUMMARY_ROWS,
 )
+from backend.app.metrics.monthly import is_month_complete
 
 
 def _international_year_totals(
@@ -299,6 +300,24 @@ def group_monthly_avg(
     return sum(pre.get(m, {}).get(month, 0) for m in mkts)
 
 
+def _ytd_value(
+    pre: dict[str, dict[int, float]],
+    year: int,
+    months: list[int],
+    spec: list[str] | str,
+    mode: str,
+) -> float:
+    """YTD daily avg (daily_avg mode) or YTD monthly-total sum (monthly mode)."""
+    if mode == "monthly":
+        return sum(group_monthly_avg(pre, m, spec) for m in months)
+    total = sum(
+        group_monthly_avg(pre, m, spec) * calendar.monthrange(int(year), int(m))[1]
+        for m in months
+    )
+    days = sum(calendar.monthrange(int(year), int(m))[1] for m in months)
+    return total / days if days > 0 else 0.0
+
+
 def build_monthly_yoy_table(
     df: pd.DataFrame,
     curr_year: int,
@@ -306,12 +325,23 @@ def build_monthly_yoy_table(
     curr_month: int,
     row_styles: list[dict[str, str]],
     mode: str = "daily_avg",
+    baseline_year: int = BASELINE_YEAR,
 ) -> dict[str, Any]:
-    """Structured monthly YoY table (PPT market rows × month columns)."""
-    months = list(range(1, curr_month + 1))
+    """Structured monthly YoY table (PPT market rows × month columns).
+
+    Display months exclude incomplete current-year months; absolute values for all
+    months (incl. provisional) are attached for CSV export. Last column is vs 2018.
+    """
+    months_all = list(range(1, curr_month + 1))
+    months = [m for m in months_all if is_month_complete(curr_year, m)] or months_all
     month_labels = [MONTH_ABBR[m] for m in months]
-    curr_pre = precompute_monthly_avgs(df, curr_year, months, mode=mode)
-    prev_pre = precompute_monthly_avgs(df, prev_year, months, mode=mode)
+    curr_pre = precompute_monthly_avgs(df, curr_year, months_all, mode=mode)
+    prev_pre = precompute_monthly_avgs(df, prev_year, months_all, mode=mode)
+    base_pre = precompute_monthly_avgs(df, baseline_year, months_all, mode=mode)
+    # Absolute monthly totals for CSV checking
+    curr_abs = precompute_monthly_avgs(df, curr_year, months_all, mode="monthly")
+    prev_abs = precompute_monthly_avgs(df, prev_year, months_all, mode="monthly")
+    base_abs = precompute_monthly_avgs(df, baseline_year, months_all, mode="monthly")
 
     def _fmt_yoy_cell(pct: float | None) -> tuple[str, str]:
         if pct is None:
@@ -323,6 +353,7 @@ def build_monthly_yoy_table(
     rows: list[dict[str, Any]] = []
     for category, label, spec in PPT_SUMMARY_ROWS:
         yoy_cells: list[float | None] = []
+        abs_cells: list[dict[str, float | int | None]] = []
         for m in months:
             curr_avg = group_monthly_avg(curr_pre, m, spec)
             prev_avg = group_monthly_avg(prev_pre, m, spec)
@@ -330,24 +361,41 @@ def build_monthly_yoy_table(
                 yoy_cells.append((curr_avg - prev_avg) / prev_avg)
             else:
                 yoy_cells.append(None)
+            abs_cells.append(
+                {
+                    "curr": round(curr_avg, 1) if curr_avg else 0,
+                    "prev": round(prev_avg, 1) if prev_avg else 0,
+                    "curr_abs": int(round(group_monthly_avg(curr_abs, m, spec))),
+                    "prev_abs": int(round(group_monthly_avg(prev_abs, m, spec))),
+                }
+            )
 
-        curr_total = sum(
-            group_monthly_avg(curr_pre, m, spec)
-            * calendar.monthrange(int(curr_year), int(m))[1]
-            for m in months
-        )
-        prev_total = sum(
-            group_monthly_avg(prev_pre, m, spec)
-            * calendar.monthrange(int(prev_year), int(m))[1]
-            for m in months
-        )
-        curr_days = sum(calendar.monthrange(int(curr_year), int(m))[1] for m in months)
-        prev_days = sum(calendar.monthrange(int(prev_year), int(m))[1] for m in months)
-        curr_ytd_avg = curr_total / curr_days if curr_days > 0 else 0
-        prev_ytd_avg = prev_total / prev_days if prev_days > 0 else 0
-        ytd_yoy = (
-            (curr_ytd_avg - prev_ytd_avg) / prev_ytd_avg if prev_ytd_avg > 0 else None
-        )
+        curr_ytd = _ytd_value(curr_pre, curr_year, months, spec, mode)
+        prev_ytd = _ytd_value(prev_pre, prev_year, months, spec, mode)
+        base_ytd = _ytd_value(base_pre, baseline_year, months, spec, mode)
+        ytd_yoy = (curr_ytd - prev_ytd) / prev_ytd if prev_ytd > 0 else None
+        vs_2018 = (curr_ytd - base_ytd) / base_ytd if base_ytd > 0 else None
+
+        # Provisional months (incomplete) for CSV only
+        provisional: list[dict[str, Any]] = []
+        for m in months_all:
+            if m in months:
+                continue
+            curr_avg = group_monthly_avg(curr_pre, m, spec)
+            prev_avg = group_monthly_avg(prev_pre, m, spec)
+            yoy = (
+                (curr_avg - prev_avg) / prev_avg if prev_avg and prev_avg > 0 else None
+            )
+            provisional.append(
+                {
+                    "month": MONTH_ABBR[m],
+                    "yoy": _fmt_yoy_cell(yoy)[0],
+                    "curr": round(curr_avg, 1) if curr_avg else 0,
+                    "prev": round(prev_avg, 1) if prev_avg else 0,
+                    "curr_abs": int(round(group_monthly_avg(curr_abs, m, spec))),
+                    "prev_abs": int(round(group_monthly_avg(prev_abs, m, spec))),
+                }
+            )
 
         rows.append(
             {
@@ -355,7 +403,25 @@ def build_monthly_yoy_table(
                 "label": label,
                 "spec": spec if isinstance(spec, str) else label,
                 "yoy_cells": [_fmt_yoy_cell(p) for p in yoy_cells],
+                "abs_cells": abs_cells,
                 "ytd_yoy": _fmt_yoy_cell(ytd_yoy),
+                "ytd_abs": {
+                    "curr": round(curr_ytd, 1),
+                    "prev": round(prev_ytd, 1),
+                    "curr_abs": int(
+                        round(_ytd_value(curr_abs, curr_year, months, spec, "monthly"))
+                    ),
+                    "prev_abs": int(
+                        round(_ytd_value(prev_abs, prev_year, months, spec, "monthly"))
+                    ),
+                    "base_abs": int(
+                        round(
+                            _ytd_value(base_abs, baseline_year, months, spec, "monthly")
+                        )
+                    ),
+                },
+                "vs_2018": _fmt_yoy_cell(vs_2018),
+                "provisional": provisional,
             }
         )
 
@@ -370,9 +436,11 @@ def build_monthly_yoy_table(
             prev_cat = None
 
     return {
-        "columns": ["Category", "Market"] + month_labels + ["YTD"],
+        "columns": ["Category", "Market"] + month_labels + ["YTD", "vs 2018"],
         "rows": rows,
         "row_styles": row_styles,
         "curr_year": curr_year,
         "prev_year": prev_year,
+        "baseline_year": baseline_year,
+        "month_labels": month_labels,
     }

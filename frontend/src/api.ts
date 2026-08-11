@@ -51,17 +51,37 @@ export type PptSummaryPayload = {
 
 export type MonthlyYoyCell = [string, string]
 
+export type MonthlyYoyAbsCell = {
+  curr: number
+  prev: number
+  curr_abs: number
+  prev_abs: number
+}
+
 export type MonthlyYoyTablePayload = {
   columns: string[]
   rows: {
     category: string
     label: string
     yoy_cells: MonthlyYoyCell[]
+    abs_cells?: MonthlyYoyAbsCell[]
     ytd_yoy: MonthlyYoyCell
+    ytd_abs?: MonthlyYoyAbsCell & { base_abs?: number }
+    vs_2018?: MonthlyYoyCell
+    provisional?: {
+      month: string
+      yoy: string
+      curr: number
+      prev: number
+      curr_abs: number
+      prev_abs: number
+    }[]
   }[]
   row_styles: RowStyle[]
   curr_year: number
   prev_year: number
+  baseline_year?: number
+  month_labels?: string[]
 }
 
 export type InternationalPayload = {
@@ -98,6 +118,7 @@ export type HolidayCpTable = {
   columns: string[]
   rows: Record<string, string | number | null>[]
   yoy_columns: string[]
+  others_breakdown?: Record<string, string | number | null | boolean>[]
 }
 
 export type HolidayOptions = {

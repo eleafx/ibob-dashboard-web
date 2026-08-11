@@ -14,17 +14,85 @@ function rowClass(style: RowStyle | undefined): string {
 }
 
 export function MonthlyYoyTable({ data }: Props) {
-  const { columns, rows, row_styles } = data
+  const { columns, rows, row_styles, curr_year, prev_year } = data
   const skipCategory = new Set(['middle', 'end'])
 
   function handleExport() {
-    const dataRows = rows.map((row) => [
-      row.category,
-      row.label,
-      ...row.yoy_cells.map(([text]) => text),
-      row.ytd_yoy[0],
-    ])
-    exportTableCsv('Monthly_YoY.csv', columns, dataRows)
+    // Rich CSV: YoY % + absolute values per month, YTD, vs 2018, plus provisional months
+    const monthLabels = data.month_labels ?? columns.slice(2, -2)
+    const headers = ['Category', 'Market']
+    for (const m of monthLabels) {
+      headers.push(
+        `${m} YoY %`,
+        `${m} ${curr_year}`,
+        `${m} ${prev_year}`,
+        `${m} ${curr_year} Absolute`,
+        `${m} ${prev_year} Absolute`,
+      )
+    }
+    headers.push(
+      'YTD YoY %',
+      `YTD ${curr_year}`,
+      `YTD ${prev_year}`,
+      `YTD ${curr_year} Absolute`,
+      `YTD ${prev_year} Absolute`,
+      'vs 2018',
+      'vs 2018 Absolute (baseline)',
+    )
+
+    // Provisional incomplete months (if any)
+    const provisionalMonths = new Set<string>()
+    for (const row of rows) {
+      for (const p of row.provisional ?? []) {
+        provisionalMonths.add(p.month)
+      }
+    }
+    const provisionalOrder = [...provisionalMonths]
+    for (const m of provisionalOrder) {
+      headers.push(
+        `${m} YoY % (provisional)`,
+        `${m} ${curr_year} (provisional)`,
+        `${m} ${prev_year} (provisional)`,
+        `${m} ${curr_year} Absolute (provisional)`,
+        `${m} ${prev_year} Absolute (provisional)`,
+      )
+    }
+
+    const dataRows = rows.map((row) => {
+      const out: (string | number)[] = [row.category, row.label]
+      for (let i = 0; i < monthLabels.length; i++) {
+        const abs = row.abs_cells?.[i]
+        out.push(
+          row.yoy_cells[i]?.[0] ?? '—',
+          abs?.curr ?? '',
+          abs?.prev ?? '',
+          abs?.curr_abs ?? '',
+          abs?.prev_abs ?? '',
+        )
+      }
+      out.push(
+        row.ytd_yoy[0],
+        row.ytd_abs?.curr ?? '',
+        row.ytd_abs?.prev ?? '',
+        row.ytd_abs?.curr_abs ?? '',
+        row.ytd_abs?.prev_abs ?? '',
+        row.vs_2018?.[0] ?? '—',
+        row.ytd_abs?.base_abs ?? '',
+      )
+      const byMonth = new Map((row.provisional ?? []).map((p) => [p.month, p]))
+      for (const m of provisionalOrder) {
+        const p = byMonth.get(m)
+        out.push(
+          p?.yoy ?? '—',
+          p?.curr ?? '',
+          p?.prev ?? '',
+          p?.curr_abs ?? '',
+          p?.prev_abs ?? '',
+        )
+      }
+      return out
+    })
+    exportTableCsv('Monthly_YoY.csv', headers, dataRows)
   }
 
   return (
@@ -83,6 +151,12 @@ export function MonthlyYoyTable({ data }: Props) {
                   ))}
                   <td className="col-ytd" style={{ color: row.ytd_yoy[1] }}>
                     {row.ytd_yoy[0]}
+                  </td>
+                  <td
+                    className="col-ytd"
+                    style={{ color: row.vs_2018?.[1] ?? '#111' }}
+                  >
+                    {row.vs_2018?.[0] ?? '—'}
                   </td>
                 </tr>
               )

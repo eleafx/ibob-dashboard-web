@@ -49,6 +49,7 @@ from backend.app.metrics.monthly import (
     calc_yoy,
     get_monthly,
     get_series,
+    is_month_complete,
     make_baseline_series,
     resolve_display_years,
 )
@@ -186,7 +187,11 @@ def build_international_payload(mode: str = "daily_avg") -> dict:
             int(m)
             for m in df_c.loc[df_c["year"] == curr_year, "month"].dropna().unique()
         )
+        # Latest month present in CSV (may be incomplete / provisional)
         curr_month = int(curr_months[-1]) if curr_months else 1
+        # Display tables/charts use last complete month; CSV still gets provisional
+        complete_months = [m for m in curr_months if is_month_complete(curr_year, m)]
+        display_month = int(complete_months[-1]) if complete_months else curr_month
 
         year_columns = [curr_year]
         for y in [curr_year - 1, curr_year - 2]:
@@ -199,7 +204,7 @@ def build_international_payload(mode: str = "daily_avg") -> dict:
         summary_rows, row_styles, ppt_meta = build_ppt_summary(
             df_c,
             target_year=curr_year,
-            target_month=curr_month,
+            target_month=display_month,
             year_columns=year_columns,
             mode=mode,
         )
@@ -208,6 +213,7 @@ def build_international_payload(mode: str = "daily_avg") -> dict:
         yoy_figure = None
         monthly_yoy_table = None
         if prev_year in available_years and row_styles is not None:
+            # Pass latest CSV month so charts/tables can hide incomplete but CSV keeps it
             yoy_figure = build_intl_monthly_yoy_chart(
                 df_c, curr_year, prev_year, curr_month, mode=mode,
             )
@@ -379,8 +385,14 @@ def _assemble_flow(
     series_dict: dict[str, list[float | None]] = {
         "2018": make_baseline_series(baseline_overall, mode=mode),
     }
+    csv_series: dict[str, list[float | None]] = {
+        "2018": make_baseline_series(baseline_overall, mode=mode),
+    }
     for yr in years:
         series_dict[str(yr)] = get_series(monthly, yr, mode=mode)
+        csv_series[str(yr)] = get_series(
+            monthly, yr, mode=mode, mask_incomplete=False,
+        )
 
     figure = make_line_figure(
         title,
@@ -388,6 +400,7 @@ def _assemble_flow(
         colors=colors,
         y_max=y_max,
         current_year=str(current_year),
+        csv_series=csv_series,
     )
 
     monthly_mainland = get_monthly(daily, mainland_col) if mainland_col else None

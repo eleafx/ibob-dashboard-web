@@ -306,13 +306,32 @@ def make_holiday_bar_figure(
 
 
 def make_holiday_cp_figure(hd: dict) -> dict | None:
-    cp_years = sorted(hd.get("cp_data", {}).keys())
+    cp_years = sorted(hd.get("cp_data", {}).keys(), key=lambda y: int(y))
     if not cp_years:
         return None
 
     fig = go.Figure()
+    # Numeric x for annotations; year tick labels + meta.csv_export carry real years
     cp_x_idx = list(range(len(cp_years)))
+    cp_years_str = [str(yr) for yr in cp_years]
     cp_endpoints: list[dict] = []
+    latest_yr = cp_years[-1]
+    prev_yr = cp_years[-2] if len(cp_years) >= 2 else None
+
+    # Collect Others constituent CPs across years for CSV breakdown
+    others_names: set[str] = set()
+    for yr in cp_years:
+        for k in hd["cp_data"].get(yr, {}):
+            if k not in TOP_CONTROL_POINTS:
+                others_names.add(k)
+
+    csv_headers = (
+        ["Year"]
+        + [CP_DISPLAY_NAME.get(cp, cp) for cp in TOP_CONTROL_POINTS]
+        + ["Others"]
+        + sorted(others_names)
+    )
+    csv_rows: list[list] = []
 
     for cp in TOP_CONTROL_POINTS:
         pts = []
@@ -328,6 +347,13 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
             .replace("Express Rail Link West Kowloon", "XRL West Kowloon")
             .replace("Hong Kong-Zhuhai-Macao Bridge", "HZMB")
         )
+        latest_val = hd["cp_data"].get(latest_yr, {}).get(cp, 0)
+        prev_val = hd["cp_data"].get(prev_yr, {}).get(cp, 0) if prev_yr else None
+        yoy_txt = _yoy_display(
+            float(latest_val) if latest_val else None,
+            float(prev_val) if prev_val else None,
+        )
+        label_text = f"{short_label} {yoy_txt}" if yoy_txt != "—" else short_label
         fig.add_trace(
             go.Scatter(
                 x=cp_x_idx,
@@ -337,7 +363,10 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
                 mode="lines+markers",
                 line=dict(color=cp_color, width=2.5),
                 marker=dict(size=7, color=cp_color),
-                hovertemplate=f"{cp_label}<br>Avg Daily: <b>%{{y:,}}</b><extra></extra>",
+                hovertemplate=(
+                    f"{cp_label}<br>Avg Daily: <b>%{{y:,}}</b>"
+                    f"<br>YoY: {yoy_txt}<extra></extra>"
+                ),
             )
         )
         visible_pts = [(i, p) for i, p in enumerate(pts) if p is not None]
@@ -347,7 +376,7 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
                 {
                     "x": last_idx,
                     "y": last_val,
-                    "text": short_label,
+                    "text": label_text,
                     "color": cp_color,
                 }
             )
@@ -358,6 +387,27 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
         others_val = sum(v for k, v in yr_data.items() if k not in TOP_CONTROL_POINTS)
         others_pts.append(int(others_val) if others_val > 0 else None)
     others_color = "#888888"
+    others_latest = sum(
+        v
+        for k, v in hd["cp_data"].get(latest_yr, {}).items()
+        if k not in TOP_CONTROL_POINTS
+    )
+    others_prev = (
+        sum(
+            v
+            for k, v in hd["cp_data"].get(prev_yr, {}).items()
+            if k not in TOP_CONTROL_POINTS
+        )
+        if prev_yr
+        else None
+    )
+    others_yoy = _yoy_display(
+        float(others_latest) if others_latest else None,
+        float(others_prev) if others_prev else None,
+    )
+    others_label = (
+        f"<i>Others</i> {others_yoy}" if others_yoy != "—" else "<i>Others</i>"
+    )
     fig.add_trace(
         go.Scatter(
             x=cp_x_idx,
@@ -367,7 +417,10 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
             mode="lines+markers",
             line=dict(color=others_color, width=1.5, dash="dash"),
             marker=dict(size=5, color=others_color),
-            hovertemplate="Others<br>Avg Daily: <b>%{y:,}</b><extra></extra>",
+            hovertemplate=(
+                f"Others<br>Avg Daily: <b>%{{y:,}}</b>"
+                f"<br>YoY: {others_yoy}<extra></extra>"
+            ),
         )
     )
     others_visible = [(i, p) for i, p in enumerate(others_pts) if p is not None]
@@ -377,19 +430,33 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
             {
                 "x": last_idx,
                 "y": last_val,
-                "text": "<i>Others</i>",
+                "text": others_label,
                 "color": others_color,
             }
         )
+
+    for yr in cp_years:
+        yr_data = hd["cp_data"].get(yr, {})
+        row: list = [str(yr)]
+        for cp in TOP_CONTROL_POINTS:
+            val = yr_data.get(cp, 0)
+            row.append(int(val) if val else 0)
+        others_sum = sum(v for k, v in yr_data.items() if k not in TOP_CONTROL_POINTS)
+        row.append(int(others_sum) if others_sum else 0)
+        for name in sorted(others_names):
+            val = yr_data.get(name, 0)
+            row.append(int(val) if val else 0)
+        csv_rows.append(row)
 
     _add_cp_direct_labels(fig, cp_endpoints)
     fig.update_layout(
         xaxis=dict(
             tickmode="array",
             tickvals=cp_x_idx,
-            ticktext=[str(yr) for yr in cp_years],
+            ticktext=cp_years_str,
             range=[-0.3, len(cp_years) - 0.3],
             tickfont=dict(size=12),
+            title=dict(text="Year", font=dict(size=12, color="#555")),
         ),
         yaxis=dict(
             tickformat=",",
@@ -398,15 +465,16 @@ def make_holiday_cp_figure(hd: dict) -> dict | None:
             title=dict(text="Avg. Daily Visitors", font=dict(size=12, color="#555")),
         ),
         showlegend=False,
-        margin=dict(l=60, r=140, t=75, b=60),
+        margin=dict(l=60, r=170, t=75, b=60),
         height=480,
         template="plotly_white",
+        meta={"csv_export": {"headers": csv_headers, "rows": csv_rows}},
     )
     return fig_to_json(fig)
 
 
 def build_cp_table(hd: dict) -> dict[str, Any] | None:
-    cp_years = sorted(hd.get("cp_total", {}).keys())
+    cp_years = sorted(hd.get("cp_total", {}).keys(), key=lambda y: int(y))
     if not cp_years:
         return None
 
@@ -417,6 +485,13 @@ def build_cp_table(hd: dict) -> dict[str, Any] | None:
         if i < len(years_desc) - 1:
             older = years_desc[i + 1]
             columns.append(f"YoY {str(yr)[-2:]}→{str(older)[-2:]}")
+
+    # Others constituents for CSV breakdown
+    others_names: set[str] = set()
+    for yr in cp_years:
+        for k in hd["cp_total"].get(yr, {}):
+            if k not in TOP_CONTROL_POINTS:
+                others_names.add(k)
 
     rows: list[dict[str, Any]] = []
     for cp in TOP_CONTROL_POINTS + ["Others"]:
@@ -442,9 +517,30 @@ def build_cp_table(hd: dict) -> dict[str, Any] | None:
                 record[f"{yoy_key}__color"] = _growth_pct_color(record[yoy_key])
         rows.append(record)
 
+    # Breakdown rows for Others (CSV / optional UI detail)
+    others_breakdown: list[dict[str, Any]] = []
+    for name in sorted(others_names):
+        year_map: dict[str, int | None] = {}
+        for yr in cp_years:
+            tv = hd["cp_total"].get(yr, {}).get(name, 0)
+            year_map[str(yr)] = int(tv) if tv else None
+        record = {"Control Point": f"  {name}", "is_others_detail": True}
+        for i, yr in enumerate(years_desc):
+            record[str(yr)] = year_map.get(str(yr))
+            if i < len(years_desc) - 1:
+                older = years_desc[i + 1]
+                yoy_key = f"YoY {str(yr)[-2:]}→{str(older)[-2:]}"
+                record[yoy_key] = _yoy_display(
+                    year_map.get(str(yr)), year_map.get(str(older))
+                )
+        others_breakdown.append(record)
+
     latest = str(years_desc[0]) if years_desc else None
     if latest:
         rows.sort(
+            key=lambda r: (r.get(latest) is None, -(r.get(latest) or 0)),
+        )
+        others_breakdown.sort(
             key=lambda r: (r.get(latest) is None, -(r.get(latest) or 0)),
         )
 
@@ -452,4 +548,5 @@ def build_cp_table(hd: dict) -> dict[str, Any] | None:
         "columns": columns,
         "rows": rows,
         "yoy_columns": [c for c in columns if c.startswith("YoY")],
+        "others_breakdown": others_breakdown,
     }

@@ -77,8 +77,20 @@ export function HolidaySection({ refreshToken }: Props) {
 
   function handleCpExport() {
     if (!data?.cp_table) return
-    const { columns, rows } = data.cp_table
-    const dataRows = rows.map((row) => columns.map((c) => row[c] ?? ''))
+    const { columns, rows, others_breakdown } = data.cp_table
+    const cell = (v: string | number | boolean | null | undefined) =>
+      v == null || typeof v === 'boolean' ? '' : v
+    const dataRows: (string | number)[][] = rows.map((row) =>
+      columns.map((c) => cell(row[c])),
+    )
+    // Append Others constituent breakdown for checking
+    if (others_breakdown?.length) {
+      dataRows.push(columns.map(() => ''))
+      dataRows.push(['Others breakdown', ...columns.slice(1).map(() => '')])
+      for (const row of others_breakdown) {
+        dataRows.push(columns.map((c) => cell(row[c])))
+      }
+    }
     exportTableCsv('Control_Point_Breakdown.csv', columns, dataRows)
   }
 

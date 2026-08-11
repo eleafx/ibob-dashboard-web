@@ -70,7 +70,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install playwright openpyxl
+          pip install playwright openpyxl playwright-stealth
           playwright install chromium
           playwright install-deps chromium
 

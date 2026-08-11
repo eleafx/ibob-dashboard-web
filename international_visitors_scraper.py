@@ -14,9 +14,10 @@ Requirements
     pip install playwright openpyxl
     playwright install chromium
 
-The script uses Playwright (headless Chromium) so that:
-  1. It can perform a proper SSO login (cookie / SAML based).
-  2. It can call the credentialled API via the browser's authenticated session.
+The script uses Playwright (headless Chromium) + playwright-stealth (Cloudflare bypass) so that:
+  1. It can evade Cloudflare bot protection on PartnerNet.
+  2. It can perform a proper SSO login (cookie / SAML based).
+  3. It can call the credentialled API via the browser's authenticated session.
 
 All 21 markets are scraped including Middle East (API value verified to match Excel).
 """
@@ -91,11 +92,11 @@ async def fetch_visitor_data(username: str, password: str, target_year: int):
     Returns dict: {month_int: {market_excel_col: int_value, ...}, ...}
     """
     from playwright.async_api import async_playwright
+    from playwright_stealth import Stealth
 
-    async with async_playwright() as p:
+    async with Stealth().use_async(async_playwright()) as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-        page = await context.new_page()
+        page = await browser.new_page()
 
         # ----------------------------------------------------------------
         # Step 1: Navigate to the tourism performance page (triggers login)
@@ -103,17 +104,16 @@ async def fetch_visitor_data(username: str, password: str, target_year: int):
         print("[1/4] Navigating to PartnerNet...")
         await page.goto(
             "https://partnernet.hktb.com/en/research_statistics/tourism_performance/index.html",
-            wait_until="domcontentloaded",
+            wait_until="load",
             timeout=60_000,
         )
+        # Wait for Cloudflare challenge + potential SSO redirect to resolve
+        await page.wait_for_timeout(5000)
 
         # ----------------------------------------------------------------
         # Step 2: Login if redirect to SSO
         # ----------------------------------------------------------------
-        # Wait briefly for possible JS-driven SSO redirect after initial load
-        await page.wait_for_timeout(2000)
-        login_input = await page.query_selector('input[type="password"]')
-        if login_input or "hktbsso" in page.url or "login" in page.url.lower():
+        if "hktbsso" in page.url or "login" in page.url.lower():
             print("[2/4] Logging in via SSO...")
             await page.fill('input[type="text"]', username)
             await page.fill('input[type="password"]', password)
@@ -138,7 +138,7 @@ async def fetch_visitor_data(username: str, password: str, target_year: int):
         """)
         print(f"      Data available: "
               f"{date_range_resp['fromYear']}-{date_range_resp['fromMonth']:02d} "
-              f"→ {date_range_resp['toYear']}-{date_range_resp['toMonth']:02d}")
+              f"-> {date_range_resp['toYear']}-{date_range_resp['toMonth']:02d}")
 
         # ----------------------------------------------------------------
         # Step 4: Fetch monthly data for the target year
@@ -370,7 +370,7 @@ def main():
                 row_data = {"year": args.year, "month": month}
                 row_data.update({m: scraped[month].get(m, "") for m in markets})
                 writer.writerow(row_data)
-        print(f"✓ CSV saved: {args.output_csv}")
+        print(f"[OK] CSV saved: {args.output_csv}")
 
     if args.excel:
         update_excel(args.excel, args.year, scraped, end_month)

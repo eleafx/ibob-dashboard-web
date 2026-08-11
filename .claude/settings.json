@@ -27,7 +27,18 @@
       "Bash(gh workflow *)",
       "Bash(git commit -m 'fix: PartnerNet scraper timeout — swap networkidle for domcontentloaded + 60s *)",
       "Bash(git stash *)",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "Bash(curl -s \"https://api.github.com/repos/eleafx/ibob-dashboard-web/actions/runs?per_page=3\")",
+      "Bash(curl -s \"https://api.github.com/repos/eleafx/ibob-dashboard-web/actions/runs/31368995052/jobs\")",
+      "Bash(curl -sL \"https://api.github.com/repos/eleafx/ibob-dashboard-web/actions/jobs/93393611896/logs\")",
+      "Bash(curl -sL -H \"Accept: application/vnd.github.v3+json\" \"https://api.github.com/repos/eleafx/ibob-dashboard-web/actions/runs/31368995052/logs\")",
+      "Bash(python -c \"import playwright; print\\('playwright OK'\\)\")",
+      "Bash(python -c \"import playwright.sync_api; p = playwright.sync_api.sync_playwright\\(\\).start\\(\\); b = p.chromium.launch\\(headless=True\\); b.close\\(\\); p.stop\\(\\); print\\('chromium OK'\\)\")",
+      "Bash(pip list *)",
+      "Bash(pip install *)",
+      "Bash(python -c \"import playwright_stealth; print\\(dir\\(playwright_stealth\\)\\)\")",
+      "Bash(python -c \"from playwright_stealth import Stealth; help\\(Stealth.use_async\\)\")",
+      "Bash(PARTNERNET_USER=\"averyxie@shkp.com\" PARTNERNET_PASS=\"UpcWDj9tTrE!9\" python international_visitors_scraper.py --year 2024 --output-csv data/international_visitors.csv)"
     ]
   }
 }

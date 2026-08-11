@@ -11,7 +11,7 @@ Usage
 
 Requirements
 ------------
-    pip install playwright openpyxl
+    pip install playwright playwright-stealth openpyxl
     playwright install chromium
 
 The script uses Playwright (headless Chromium) + playwright-stealth (Cloudflare bypass) so that:
@@ -122,7 +122,7 @@ async def fetch_visitor_data(username: str, password: str, target_year: int):
                 "**/partnernet.hktb.com/**",
                 timeout=30_000,
             )
-            print("      ✓ Logged in")
+            print("      [OK] Logged in")
         else:
             print("[2/4] Already logged in (session active)")
 
@@ -154,7 +154,7 @@ async def fetch_visitor_data(username: str, password: str, target_year: int):
 
         end_month = to_month if target_year == to_year else 12
 
-        print(f"[4/4] Downloading {target_year} Jan–{end_month:02d} data...")
+        print(f"[4/4] Downloading {target_year} Jan-{end_month:02d} data...")
         data_resp = await page.evaluate(f"""
             async () => {{
                 const r = await fetch(
@@ -246,7 +246,7 @@ def update_excel(excel_path: str, year: int, scraped: dict, end_month: int):
 
         month_data = scraped.get(month_int, {})
         if not month_data:
-            print(f"  Skipping month {month_int:02d} — no data")
+            print(f"  Skipping month {month_int:02d} - no data")
             continue
 
         # Write Date cell (last day of month as convention)
@@ -266,8 +266,8 @@ def update_excel(excel_path: str, year: int, scraped: dict, end_month: int):
         print(f"  Month {month_int:02d}: wrote {updates} market values to row {excel_row}")
 
     wb.save(excel_path)
-    print(f"\n✓ Saved: {excel_path}")
-    print("⚠️  Remember to manually enter Middle East values in column V!")
+    print(f"\n[OK] Saved: {excel_path}")
+    print("[WARN] Remember to manually enter Middle East values in column V!")
 
 
 # ---------------------------------------------------------------------------
@@ -305,8 +305,8 @@ def main():
     # Credential check
     # ----------------------------------------------------------------
     if not args.username or not args.password:
-        print("❌  Missing credentials. Options:")
-        print("    1. Copy .env.example → .env and fill in PARTNERNET_USER / PARTNERNET_PASS")
+        print("[ERROR] Missing credentials. Options:")
+        print("    1. Copy .env.example to .env and fill in PARTNERNET_USER / PARTNERNET_PASS")
         print("    2. Set env vars: export PARTNERNET_USER=... PARTNERNET_PASS=...")
         print("    3. Pass flags: --username ... --password ...")
         return
@@ -322,7 +322,7 @@ def main():
             args.excel = str(candidates[0])
             print(f"Auto-detected Excel: {args.excel}")
         else:
-            print("⚠️  Could not auto-detect Excel. Use --excel or --output-csv to specify output.")
+            print("[WARN] Could not auto-detect Excel. Use --excel or --output-csv to specify output.")
             return
 
     print(f"Target year : {args.year}")
@@ -337,7 +337,7 @@ def main():
     )
 
     if args.dry_run:
-        print("\n--- DRY RUN: Scraped data (month → market → value) ---")
+        print("\n--- DRY RUN: Scraped data (month -> market -> value) ---")
         for m, row in sorted(scraped.items()):
             print(f"  {args.year}-{m:02d}: {row}")
         return

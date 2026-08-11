@@ -70,7 +70,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install playwright openpyxl playwright-stealth
+          pip install playwright playwright-stealth openpyxl pandas
+          python -c "from playwright_stealth import Stealth; print('playwright-stealth OK')"
           playwright install chromium
           playwright install-deps chromium
 
@@ -79,6 +80,8 @@ jobs:
           PARTNERNET_USER: ${{ secrets.PARTNERNET_USER }}
           PARTNERNET_PASS: ${{ secrets.PARTNERNET_PASS }}
         run: |
+          pip install playwright-stealth==2.0.3
+          python -c "from playwright_stealth import Stealth"
           YEAR=$(date +%Y)
           PRIOR=$((YEAR - 1))
           OUT=data/international_visitors.csv
